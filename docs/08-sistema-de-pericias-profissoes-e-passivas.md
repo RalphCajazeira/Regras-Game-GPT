@@ -1,56 +1,85 @@
 # Sistema de Perícias, Profissões e Passivas
 
-**Versão da proposta:** `skills-v0.1`  
+**Versão da proposta:** `skills-v0.2`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Manter poucos atributos primários universais e representar especializações por perícias, proficiências, profissões e habilidades passivas.
-
-Os atributos indicam o potencial geral do ator. As perícias indicam o que ele aprendeu a fazer. As passivas modificam regras existentes sem criar novos atributos primários.
-
-## 2. Camadas do domínio
+Representar especialização prática sem multiplicar atributos primários.
 
 ```text
-Atributos primários
-→ atributos secundários
-→ perícias e proficiências
-→ habilidades ativas e passivas
-→ profissões e receitas
-→ resolução validada pelo backend
+Atributos → potencial geral
+Perícias → prática ampla
+Proficiências → domínio de categoria
+Habilidades e magias → técnicas específicas
+Profissões → progressão temática e produtiva
+Passivas → alterações estruturadas de regras
 ```
 
-### 2.1 Atributo primário
+A progressão oficial por uso está definida em:
 
-Capacidade universal: Força, Agilidade, Destreza, Vitalidade ou Inteligência.
+`docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md`
 
-### 2.2 Atributo secundário
+## 2. Camadas
 
-Valor derivado usado diretamente nas regras, como Precisão, Esquiva, ATK, DEF ou Velocidade.
+### Atributo primário
 
-### 2.3 Perícia
+Capacidade universal:
 
-Experiência prática progressiva em uma atividade, como Ferraria, Comércio, Alquimia ou Primeiros Socorros.
+```text
+Força
+Agilidade
+Destreza
+Vitalidade
+Inteligência
+```
 
-### 2.4 Proficiência
+### Atributo secundário
 
-Domínio de uma ferramenta, arma ou categoria específica, como Adagas, Arcos, Espadas, Martelos de Ferreiro ou Armaduras Pesadas.
+Valor derivado diretamente usado em resolução, como Precisão, Esquiva, ATK, DEF ou Velocidade.
 
-### 2.5 Habilidade ativa
+### Perícia
 
-Ação declarada pelo ator e definida no sistema de ações.
+Experiência prática em área ampla:
 
-### 2.6 Habilidade passiva
+```text
+Ferraria
+Piromancia
+Comércio
+Furtividade
+Primeiros Socorros
+Sobrevivência
+```
 
-Modificador ou gatilho automático que altera uma regra existente sem consumir uma ação normal, salvo quando sua definição declarar custo ou ativação.
+### Proficiência
 
-### 2.7 Profissão
+Domínio de arma, ferramenta, armadura, material ou categoria:
 
-Conjunto organizado de perícias, proficiências, passivas, receitas e progressão temática.
+```text
+Adagas
+Espadas
+Arcos
+Cajados
+Armaduras Pesadas
+Ferramentas de Ferreiro
+Aço Élfico
+```
+
+### Habilidade ativa
+
+Ação declarada e definida pelo sistema de ações.
+
+### Habilidade passiva
+
+Efeito automático, modificador ou gatilho estruturado.
+
+### Profissão
+
+Conjunto organizado de perícias, proficiências, receitas, passivas, especializações e marcos.
 
 ## 3. Perícias
 
-Estrutura recomendada:
+Estrutura:
 
 ```json
 {
@@ -59,30 +88,30 @@ Estrutura recomendada:
   "level": 8,
   "experience": 430,
   "experienceToNextLevel": 600,
-  "unspentSkillPoints": 0,
   "attributeContributions": [
     { "attribute": "strength", "weight": 0.25 },
     { "attribute": "dexterity", "weight": 0.35 },
     { "attribute": "intelligence", "weight": 0.20 }
   ],
-  "tags": ["CRAFTING", "METALWORK"]
+  "tags": ["CRAFTING", "METALWORK"],
+  "ruleVersion": "skills-v0.2"
 }
 ```
 
-O backend calcula e retorna uma pontuação efetiva:
+Pontuação efetiva:
 
 ```text
-Pontuação Efetiva =
 contribuição do nível da perícia
-+ contribuições dos atributos
++ atributos
 + proficiências
 + ferramentas
-+ ambiente ou oficina
++ ambiente
 + passivas
++ condições
 + modificadores temporários
 ```
 
-Os pesos e fórmulas são versionados por perícia. O GPT não escolhe pesos depois de conhecer a rolagem.
+Pesos e fórmulas são versionados.
 
 ## 4. Exemplos de perícias
 
@@ -97,15 +126,14 @@ Os pesos e fórmulas são versionados por perícia. O GPT não escolhe pesos dep
 - Curtimento;
 - Carpintaria.
 
-### Combate e uso de equipamentos
+### Combate e magia
 
-- Adagas;
-- Espadas;
-- Arcos;
-- Cajados;
-- Escudos;
-- Armaduras Pesadas;
-- Combate Desarmado.
+- Piromancia;
+- Criomancia;
+- Cura;
+- Combate Desarmado;
+- Tática;
+- Controle Mágico.
 
 ### Exploração e suporte
 
@@ -125,9 +153,26 @@ Os pesos e fórmulas são versionados por perícia. O GPT não escolhe pesos dep
 - Etiqueta;
 - Avaliação de Itens.
 
-## 5. Profissões
+## 5. Proficiências
 
-Uma profissão agrupa progressões relacionadas.
+Uma proficiência possui progressão própria quando representar prática recorrente relevante.
+
+```json
+{
+  "code": "daggers",
+  "name": "Adagas",
+  "level": 18,
+  "experience": 320,
+  "experienceToNextLevel": 410,
+  "tags": ["WEAPON", "FINESSE"]
+}
+```
+
+Ataques básicos universais normalmente evoluem a proficiência da categoria, não uma barra separada para cada golpe comum.
+
+Habilidades nomeadas e magias específicas podem possuir domínio individual além da perícia e proficiência.
+
+## 6. Profissões
 
 ```json
 {
@@ -142,7 +187,19 @@ Uma profissão agrupa progressões relacionadas.
 }
 ```
 
-A profissão não substitui as perícias. Ela organiza desbloqueios, receitas, passivas e identidade de progressão.
+A profissão não substitui as perícias.
+
+Ela organiza:
+
+- identidade profissional;
+- receitas;
+- materiais;
+- ferramentas;
+- passivas;
+- especializações;
+- marcos;
+- requisitos;
+- possibilidade de ensinar.
 
 Exemplos:
 
@@ -154,7 +211,7 @@ Exemplos:
 - Caçador;
 - Mercador.
 
-## 6. Habilidades passivas
+## 7. Passivas
 
 Passivas usam efeitos estruturados e versionados.
 
@@ -190,110 +247,175 @@ Outro exemplo:
 }
 ```
 
-Essas passivas modificam a transação atual. Elas não alteram `baseBuyPrice` ou `baseSellPrice` da definição do item.
+Passivas não alteram silenciosamente os valores-base persistidos das definições.
 
-## 7. Acúmulo e limites
+## 8. Acúmulo e limites
 
-Modificadores da mesma categoria são consolidados antes da aplicação:
+Modificadores são consolidados por categoria:
 
 ```text
-modificador da passiva
+passiva
++ equipamento
 + reputação
 + relação
-+ negociação
++ ambiente
++ condição
 = modificador agregado
 ```
 
 Depois o backend aplica:
 
-- limite da categoria;
-- faixa mínima e máxima do comerciante;
+- limites;
 - incompatibilidades;
-- prioridade de efeitos;
-- regra de não acumulação, quando existir.
+- prioridade;
+- regra de não acumulação;
+- versão vigente.
 
-Uma passiva nunca autoriza o GPT a ultrapassar limites persistidos.
+## 9. Progressão pelo uso
 
-## 8. Progressão pelo uso
-
-Uma perícia pode ganhar experiência por tentativa válida ou resultado relevante.
+Toda tentativa mecanicamente executada pode gerar XP.
 
 ```text
 uso válido
-→ backend confirma requisitos e consumo
-→ concede XP da perícia
-→ verifica aumento de nível
-→ aplica desbloqueios
+→ backend confirma execução, custos e consequências
+→ gera eventos de progressão
+→ concede XP às trilhas aplicáveis
+→ verifica níveis e marcos
+→ persiste atomicamente
 ```
 
-Regras contra exploração:
+### Contextos válidos
 
-- atividades triviais concedem XP reduzido ou zero;
-- cancelar antes da resolução não concede XP;
-- tentativas precisam respeitar custos reais;
-- falhas deliberadas não devem ser treinamento eficiente;
-- repetições podem sofrer retorno decrescente;
-- o backend calcula o XP autoritativo.
+- combate real;
+- treino livre;
+- árvore ou alvo estático;
+- boneco de treino;
+- sparring;
+- estudo;
+- meditação;
+- atividade profissional;
+- tentativa criativa resolvida pelo backend.
 
-## 9. Resolução de perícia
+### Regras
 
-Uma resolução pode ser direta no backend ou local pelo GPT.
+- falha válida pode ensinar;
+- ação interrompida pode gerar XP parcial;
+- comando rejeitado antes de executar não gera XP;
+- repetição válida não recebe zero apenas por ser repetição;
+- Cansaço, dificuldade, contexto e resultado ajustam a quantidade;
+- custos e tempo permanecem reais;
+- backend calcula XP oficial;
+- idempotência impede duplicação.
 
-### 9.1 Resolução direta
+## 10. Ataque, defesa e resistência
 
-O GPT envia a intenção e o backend calcula, rola, persiste e retorna o resultado.
+### Ataque
 
-Adequada para operações curtas e altamente autoritativas.
+Pode treinar:
 
-### 9.2 Sessão por snapshot
+- ação ou habilidade;
+- proficiência da arma;
+- perícia de combate;
+- atributos declarados.
 
-O backend retorna:
+### Esquiva
 
-```json
-{
-  "skillSessionId": "skill-session-id",
-  "stateVersion": 15,
-  "ruleVersion": "skills-v0.1",
-  "actor": {},
-  "skill": {
-    "code": "blacksmithing",
-    "level": 8,
-    "effectiveScore": 72
-  },
-  "availableActions": [],
-  "constraints": {},
-  "resolutionPolicy": {}
-}
+Exige tentativa real de esquiva.
+
+Ser atingido sem tentar esquivar não concede XP de Esquiva.
+
+### Bloqueio e aparo
+
+Exigem tentativa correspondente.
+
+### Dano recebido
+
+Pode treinar:
+
+- Vitalidade;
+- tolerância à dor;
+- resiliência;
+- proficiência de armadura quando houve absorção aplicável.
+
+Também pode causar incapacidade, ferimento ou morte.
+
+## 11. Domínio individual
+
+Habilidades e magias nomeadas possuem domínio por ator:
+
+```text
+actor
++ contentDefinition
++ contentVersion
++ masteryLevel
++ masteryXp
++ statistics
++ selectedSpecializations
 ```
 
-O GPT pode conduzir escolhas, rolagens e narrativa localmente enquanto o estado-base permanecer válido. Ao final, envia um log estruturado para reprodução e persistência.
+A definição declara quais parâmetros melhoram e em quais marcos.
 
-## 10. Responsabilidades
+## 12. Sessões em lote
+
+Treinos longos reutilizam os serviços gerais, sem chamada por repetição.
+
+Exemplos:
+
+```text
+TRAIN_ACTION_REPETITION
+TRAIN_FOR_DURATION
+TRAIN_UNTIL_RESOURCE_LIMIT
+SPARRING_SESSION
+STUDY_SESSION
+MEDITATION_SESSION
+```
+
+O backend resolve cada uso necessário, aplica condições de parada e devolve um resumo consolidado.
+
+## 13. Widget
+
+O widget mostra:
+
+- nível;
+- XP;
+- domínio;
+- marcos;
+- contribuições de atributos;
+- efeitos aplicáveis;
+- custo e duração de treino;
+- Cansaço previsto;
+- resumo confirmado.
+
+O widget não calcula XP autoritativa.
+
+## 14. Responsabilidades
 
 ### GPT
 
-- escolher a perícia compatível com a intenção;
-- usar somente parâmetros carregados;
-- conduzir escolhas e narrativa;
-- registrar modificadores e rolagens;
-- não inventar níveis, passivas, receitas ou bônus;
-- enviar resolução consolidada quando houver alteração persistente.
+- interpretar a atividade;
+- escolher perícia e técnica coerentes;
+- estruturar treino criativo;
+- narrar resultados e marcos;
+- não conceder XP ou bônus diretamente.
 
 ### Backend
 
-- persistir níveis, XP, desbloqueios e passivas;
-- calcular pontuações efetivas;
+- calcular pontuação efetiva;
+- resolver ação ou sessão;
+- aplicar custos;
+- criar eventos de progressão;
+- calcular XP;
 - validar efeitos e acúmulos;
-- controlar custos, limites e versões;
-- conceder XP autoritativo;
-- retornar erros acionáveis;
-- aplicar alterações persistentes atomicamente.
+- aplicar níveis, marcos e desbloqueios;
+- persistir atomicamente.
 
-## 11. Regra central
+## 15. Regra central
 
 ```text
 Poucos atributos universais.
-Especialização por perícias, proficiências, profissões e passivas.
-GPT conduz dentro do snapshot.
-Backend calcula, valida e persiste consequências permanentes.
+Especialização por perícias, proficiências, domínio, profissões e passivas.
+Toda prática executada pode ensinar.
+Backend resolve e persiste.
+GPT interpreta e narra.
+Widget apresenta e coleta comandos.
 ```

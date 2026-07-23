@@ -283,6 +283,15 @@ novoAtual = mínimo(atualAnterior, novoMáximo)
 
 ## 8. Estrutura canônica resumida
 
+O exemplo abaixo usa todos os pontos previstos para um personagem nível 5:
+
+```text
+20 pontos-base
++ 16 pontos livres da criação
++ 40 pontos das quatro subidas de nível
+= 76 pontos primários totais
+```
+
 ```json
 {
   "ruleVersion": "attributes-v0.2",
@@ -290,33 +299,33 @@ novoAtual = mínimo(atualAnterior, novoMáximo)
   "unspentPrimaryPoints": 0,
   "primaryAttributes": {
     "strength": { "base": 5, "allocated": 20, "permanent": 0, "equipment": 0, "temporary": 0, "total": 25 },
-    "dexterity": { "base": 5, "allocated": 5, "permanent": 0, "equipment": 0, "temporary": 0, "total": 10 },
-    "intelligence": { "base": 5, "allocated": 0, "permanent": 0, "equipment": 0, "temporary": 0, "total": 5 },
+    "dexterity": { "base": 5, "allocated": 10, "permanent": 0, "equipment": 0, "temporary": 0, "total": 15 },
+    "intelligence": { "base": 5, "allocated": 5, "permanent": 0, "equipment": 0, "temporary": 0, "total": 10 },
     "vitality": { "base": 5, "allocated": 21, "permanent": 0, "equipment": 0, "temporary": 0, "total": 26 }
   },
   "resources": {
     "health": { "current": 200, "maximum": 200 },
-    "mana": { "current": 40, "maximum": 40 },
-    "stamina": { "current": 102, "maximum": 102 }
+    "mana": { "current": 60, "maximum": 60 },
+    "stamina": { "current": 104, "maximum": 104 }
   },
   "secondaryAttributes": {
     "physicalAttack": 50,
-    "magicalAttack": 10,
-    "physicalAccuracy": 10,
-    "magicalAccuracy": 7,
+    "magicalAttack": 20,
+    "physicalAccuracy": 12,
+    "magicalAccuracy": 10,
     "physicalDefense": 38,
-    "magicalDefense": 28,
-    "evasion": 10,
+    "magicalDefense": 31,
+    "evasion": 12,
     "criticalChance": 6,
     "criticalDamage": 150,
     "criticalDefense": 0,
     "physicalResistance": 38,
-    "mentalResistance": 18,
-    "initiative": 10,
+    "mentalResistance": 23,
+    "initiative": 15,
     "speed": 5,
     "carryCapacity": 135,
-    "perception": 7,
-    "stealth": 10
+    "perception": 12,
+    "stealth": 15
   }
 }
 ```

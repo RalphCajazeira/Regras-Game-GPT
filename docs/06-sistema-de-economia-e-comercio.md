@@ -1,28 +1,33 @@
 # Sistema de Economia e Comércio
 
-**Versão da proposta:** `economy-v0.2`  
+**Versão da proposta:** `economy-v0.3`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Definir uma economia única e previsível, permitindo que o GPT interprete comerciantes, mercados e negociações sem criar preços arbitrários.
+Definir uma economia previsível para que o GPT conduza comércio e negociação sem criar preços arbitrários.
 
-O backend mantém preços-base, saldos, estoques, limites e validações. O GPT conduz a experiência comercial dentro dos parâmetros carregados.
+O sistema distingue:
+
+- preço Comum de referência da definição;
+- preço-base resolvido da instância;
+- preço de referência do mercado;
+- preço final da transação.
 
 ## 2. Princípios
 
-1. Existe uma única moeda em todo o jogo.
+1. Existe uma única moeda.
 2. Valores monetários são inteiros.
-3. Todo item comercializável possui preço-base de compra e venda.
-4. Preço-base não é necessariamente o preço final.
-5. Mercado, condição, comerciante, reputação, perícias e passivas podem modificar a transação.
-6. O GPT varia preços somente dentro das faixas autorizadas.
+3. Definições usam qualidade Comum como referência econômica.
+4. Qualidade da instância resolve seu próprio preço-base.
+5. Mercado, condição, comerciante, reputação, perícias e passivas alteram a transação.
+6. O GPT negocia somente dentro das faixas autorizadas.
 7. O backend controla saldo, estoque, propriedade e resultado final.
 8. Transações são atômicas.
 9. Comerciantes possuem especialidade, estoque e dinheiro limitados.
-10. Entradas e saídas de moeda devem preservar o valor econômico do jogo.
+10. Fabricar um item cria valor potencial, não dinheiro automático.
 
-## 3. Moeda única
+## 3. Moeda
 
 ```text
 Nome: Coroa
@@ -37,23 +42,16 @@ Código: CROWN
 }
 ```
 
-O saldo é persistido como `currencyBalance`.
+O saldo é `currencyBalance` e não pode ficar negativo.
 
-Regras:
-
-- saldo não pode ser negativo;
-- dinheiro não possui peso na primeira versão;
-- recompensas, lojas e serviços usam a mesma moeda;
-- moedas regionais narrativas são convertidas antes de alterar o estado.
-
-## 4. Escala de referência
+## 4. Escala econômica inicial
 
 | Referência | Preço aproximado |
 |---|---:|
 | Refeição simples | `5` |
 | Refeição boa | `12` |
 | Hospedagem simples | `20` |
-| Kit básico de viagem | `35` |
+| Kit de viagem | `35` |
 | Poção comum inicial | `30` |
 | Adaga comum nível 1 | `40` |
 | Espada curta comum nível 1 | `70` |
@@ -64,57 +62,123 @@ Regras:
 | Reparo simples | `10` a `30` |
 | Missão inicial curta | `50` a `150` |
 
-A cesta é uma âncora de calibração e ainda precisa de simulações.
+A cesta ainda precisa de simulações.
 
-## 5. Tipos de preço
+## 5. Camadas de preço
 
-### Preço-base de compra — `baseBuyPrice`
+### 5.1 Definição
 
-Valor normal do item novo ou em condição padrão, em mercado estável.
-
-### Preço-base de venda — `baseSellPrice`
-
-Referência normal de recompra por comerciante geral.
+A definição guarda a referência Comum:
 
 ```text
-baseSellPrice = arredondar_para_baixo(baseBuyPrice × 0,40)
+commonBaseBuyPrice
+commonBaseSellPrice
+currencyCode
 ```
 
-### Preço de referência — `referencePrice`
+Exemplo:
 
-Valor calculado para aquele mercado e comerciante antes da negociação final.
+```json
+{
+  "definitionCode": "elven-dagger",
+  "referenceQuality": "COMMON",
+  "commonBaseBuyPrice": 120,
+  "commonBaseSellPrice": 48,
+  "currencyCode": "CROWN"
+}
+```
 
-### Preço final — `transactionPrice`
+### 5.2 Instância
 
-Valor efetivamente transferido. Não altera automaticamente os preços-base.
-
-## 6. Formação do preço
+A instância guarda os valores-base resolvidos para sua qualidade:
 
 ```text
-Preço-base =
+resolvedBaseBuyPrice
+resolvedBaseSellPrice
+```
+
+```json
+{
+  "definitionCode": "elven-dagger",
+  "quality": "RARE",
+  "resolvedBaseBuyPrice": 240,
+  "resolvedBaseSellPrice": 96
+}
+```
+
+### 5.3 Mercado
+
+```text
+referencePrice
+```
+
+É calculado para região, comerciante e condição atual.
+
+### 5.4 Transação
+
+```text
+transactionPrice
+```
+
+É o valor efetivamente transferido depois de negociação e limites.
+
+## 6. Formação do preço Comum
+
+```text
+Preço Comum da Definição =
 preço da categoria
-× nível
-× qualidade
+× fator de nível
 × material
 × fabricação
-× poder utilizado
+× fator de poder Comum utilizado
+```
+
+A definição não inclui multiplicador de qualidade diferente de Comum.
+
+## 7. Resolução de preço por qualidade
+
+Multiplicadores iniciais:
+
+| Qualidade | Multiplicador de preço |
+|---|---:|
+| Inferior | `0,50` |
+| Comum | `1,00` |
+| Raro | `2,00` |
+| Épico | `4,00` |
+| Lendário | `8,00` |
+
+```text
+resolvedBaseBuyPrice =
+commonBaseBuyPrice
+× multiplicador da qualidade
+× ajustes explícitos da instância
 ```
 
 ```text
-Preço de referência =
-preço-base
+resolvedBaseSellPrice =
+arredondar_para_baixo(
+  resolvedBaseBuyPrice × taxa-base de recompra
+)
+```
+
+Taxa inicial de referência:
+
+```text
+40%
+```
+
+Os valores resolvidos ficam congelados na instância com as versões de regra usadas.
+
+## 8. Preço de referência do mercado
+
+```text
+referencePrice =
+preço-base resolvido da instância
 × condição
 × escassez
 × demanda
 × especialidade
 × margem comercial
-```
-
-```text
-Preço final =
-preço de referência
-modificado por perícias, passivas, reputação e negociação
-limitado pela faixa autorizada
 ```
 
 O backend retorna:
@@ -125,21 +189,30 @@ minimumAllowedPrice
 maximumAllowedPrice
 ```
 
-## 7. Compra e venda
+## 9. Preço final
 
-Faixas iniciais propostas:
+```text
+transactionPrice =
+referencePrice
+modificado por perícias, passivas, reputação e negociação
+limitado pela faixa autorizada
+```
+
+A negociação nunca altera permanentemente o preço da definição ou da instância.
+
+## 10. Compra e venda
+
+Faixas iniciais:
 
 | Situação | Faixa aproximada |
 |---|---:|
-| Loja vendendo ao jogador | `90%` a `140%` da referência |
-| Loja comprando do jogador | `25%` a `60%` da referência |
+| Loja vendendo | `90%` a `140%` da referência |
+| Loja comprando | `25%` a `60%` da referência |
 | Especialista comprando categoria relevante | até `70%` |
-| Desconto normal negociado | até `15%` |
+| Desconto normal | até `15%` |
 | Desconto excepcional | até `25%` |
 
-Essas faixas ainda precisam de simulações.
-
-## 8. Comerciante
+## 11. Comerciante
 
 ```json
 {
@@ -153,50 +226,35 @@ Essas faixas ainda precisam de simulações.
 }
 ```
 
-O comerciante pode recusar categoria, item roubado, item danificado ou transação acima de seu saldo.
+O comerciante pode recusar categoria, item roubado, vinculado, quebrado ou transação acima de seu saldo.
 
-## 9. Perícia de Comércio
+## 12. Perícia de Comércio
 
-Comércio é uma perícia, não um atributo primário.
+Comércio é perícia, não atributo primário.
 
 Pode considerar:
 
 - nível da perícia;
-- Destreza para leitura e execução técnica;
-- Inteligência para avaliação e estratégia;
+- Destreza;
+- Inteligência;
 - reputação;
-- relação com o comerciante;
+- relação;
 - passivas;
-- argumento apresentado;
+- argumento;
 - rolagem.
 
-Os pesos são carregados pelo backend. O GPT não inventa a contribuição dos atributos.
+Os pesos são calculados pelo backend.
 
-## 10. Passivas comerciais
-
-Exemplos:
+## 13. Passivas comerciais
 
 ```text
-Desconto → reduz preço de compra em X%
-Boa Revenda → aumenta valor recebido em X%
+Desconto → reduz compra
+Boa Revenda → aumenta venda
 Avaliador → melhora informação sobre preço e condição
 Cliente Frequente → melhora faixa com comerciante específico
 ```
 
-Passivas modificam a transação, nunca `baseBuyPrice` ou `baseSellPrice`.
-
-### Acúmulo
-
-```text
-passivas
-+ perícia
-+ reputação
-+ relação
-+ negociação
-= modificador agregado
-```
-
-O backend aplica limites e faixa autorizada depois da consolidação.
+Passivas modificam apenas a transação.
 
 Exemplo:
 
@@ -205,115 +263,91 @@ Preço de referência: 100
 Passiva: -10%
 Negociação: -15%
 Preço bruto: 75
-Preço mínimo autorizado: 80
+Mínimo autorizado: 80
 Preço final: 80
 ```
 
-## 11. Fabricação e economia
+## 14. Qualidade, condição e variante
 
-Itens fabricados usam os mesmos preços-base, mas seu custo econômico pode incluir:
+```text
+Qualidade = potencial de fabricação da instância
+Condição = conservação atual
+Variante = diferença real de identidade ou mecânica
+```
+
+- qualidade muda preço-base resolvido;
+- condição muda preço de mercado;
+- variante pode possuir outra referência Comum;
+- qualidade não cria cadastro econômico separado.
+
+## 15. Fabricação e economia
+
+Uma receita produz instância vinculada a definição e variante existentes.
+
+O backend resolve:
+
+- qualidade;
+- modificadores;
+- preço-base da instância;
+- proveniência;
+- custos consumidos.
+
+Custos possíveis:
 
 - materiais;
 - combustível;
 - ferramentas;
 - oficina;
 - taxas;
-- serviços auxiliares;
+- serviços;
 - tempo.
 
-Qualidade maior pode aumentar preço, mas a venda continua sujeita a demanda, especialidade, estoque e saldo do comerciante.
-
-Fabricação não cria dinheiro diretamente. Ela transforma recursos e tempo em itens que ainda precisam ser vendidos ou usados.
-
-## 12. Recompensas e saídas de moeda
-
-Fontes:
-
-- missões;
-- contratos;
-- tesouros;
-- venda de itens;
-- serviços;
-- exploração.
-
-Saídas:
-
-- consumíveis;
-- reparos;
-- hospedagem;
-- transporte;
-- treinamento;
-- fabricação;
-- ferramentas;
-- oficinas;
-- encantamentos;
-- informações;
-- taxas.
-
-Recompensas devem considerar nível, risco, duração e importância.
-
-## 13. Sessão comercial
+## 16. Sessão comercial
 
 O snapshot contém:
 
 - saldos;
-- estoque;
+- estoque com instâncias e pilhas;
+- qualidade, condição e preços resolvidos;
 - categorias aceitas;
-- preços-base e de referência;
+- preços de referência;
 - faixas autorizadas;
-- condição dos itens;
 - perícia de Comércio;
 - passivas;
 - reputação e relação;
-- flexibilidade de negociação;
+- reservas;
 - `stateVersion`.
 
-O GPT conduz diálogo e contrapropostas localmente. Ao final, envia a transação consolidada.
+O GPT conduz diálogo e contrapropostas. O backend valida e transfere atomicamente.
 
-## 14. Validação do backend
-
-- sessão e versão;
-- saldo;
-- estoque e propriedade;
-- categorias aceitas;
-- preços-base;
-- mercado e condição;
-- perícias e passivas;
-- faixas autorizadas;
-- total monetário;
-- ausência de duplicação;
-- transferência atômica.
-
-## 15. Responsabilidades
+## 17. Responsabilidades
 
 ### GPT
 
-- interpretar o comerciante;
-- apresentar preços carregados;
-- usar perícias e passivas aplicáveis;
-- conduzir negociação;
-- manter preços dentro dos limites;
-- registrar propostas e rolagens;
-- enviar transação consolidada.
+- apresentar qualidade e condição corretas;
+- usar o preço resolvido da instância;
+- conduzir negociação dentro da faixa;
+- não criar um preço por qualidade sem regra;
+- registrar propostas e resultado.
 
 ### Backend
 
-- calcular preços e faixas;
-- persistir saldos, estoques e relações;
-- calcular pontuação efetiva de Comércio;
-- validar passivas e acúmulos;
-- transferir itens e Coroas;
-- manter histórico;
-- impedir abusos econômicos.
+- calcular referências Comuns;
+- resolver preços por qualidade;
+- congelar valores na instância;
+- calcular mercado e faixas;
+- validar passivas e negociação;
+- controlar saldo, estoque e propriedade;
+- impedir duplicação e arbitragem indevida.
 
-## 16. Pendências
+## 18. Pendências
 
-- validar cesta de preços;
-- calibrar margens e recompra;
-- definir pesos da perícia Comércio;
-- calibrar passivas comerciais;
-- definir mercados regionais;
+- calibrar cesta de preços;
+- calibrar multiplicadores de qualidade;
+- definir taxa de recompra por categoria;
+- calibrar margens e negociação;
+- mercados regionais;
 - itens roubados e vinculados;
-- conservação e durabilidade;
-- inflação em campanhas longas;
-- custos completos de fabricação e serviços.
+- condição e durabilidade;
+- inflação;
+- migração de preços resolvidos antigos.

@@ -1,31 +1,35 @@
 # Sistema de Inventário, Itens, Drops e Saque
 
-**Versão da proposta:** `inventory-v0.1`  
+**Versão da proposta:** `inventory-v0.2`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Definir como itens são criados, identificados, armazenados, empilhados, equipados, consumidos, transferidos, saqueados, destruídos e persistidos.
+Definir como itens são identificados, instanciados, agrupados, armazenados, equipados, consumidos, transferidos, saqueados, destruídos e persistidos.
 
-O sistema deve impedir que o GPT invente itens, munições, consumíveis, dinheiro ou drops depois que uma interação já começou. Ao mesmo tempo, o GPT pode criar ou revisar definições e instâncias por meio das operações adequadas, desde que a proposta seja coerente e validada pelo backend.
+O sistema deve evitar dois problemas:
+
+1. o GPT inventar itens ou drops depois que uma interação começou;
+2. o banco possuir vários cadastros do mesmo item apenas porque a qualidade é diferente.
 
 ## 2. Princípios
 
-1. Definição de item e instância de item são conceitos diferentes.
-2. Todo item persistente possui identidade, localização e propriedade conhecidas.
-3. Quantidade, peso, condição, cargas e durabilidade são dados mecânicos, não descrições narrativas livres.
-4. Equipamentos, consumíveis, munições, materiais, ferramentas e itens de missão usam a mesma estrutura-base.
-5. Itens empilháveis somente compartilham uma pilha quando seus dados relevantes são compatíveis.
-6. Equipar, consumir, transferir, saquear, fabricar ou destruir itens altera o mesmo estado autoritativo.
-7. Itens carregados por um ator materializado são definidos antes da interação relevante.
-8. Drops naturais e recompensas usam regras previamente declaradas e resultado reproduzível.
-9. O GPT pode propor criação e revisão, mas não acrescenta retroativamente recursos a um snapshot em andamento.
-10. Toda alteração persistente é validada e aplicada atomicamente pelo backend.
+1. Definição, variante e instância são conceitos diferentes.
+2. Qualidade pertence à instância, não cria automaticamente nova definição.
+3. A definição usa qualidade Comum como referência.
+4. Todo item persistente possui identidade, localização e propriedade conhecidas.
+5. Equipar, consumir, vender, fabricar, transferir ou destruir altera o mesmo estado autoritativo.
+6. Itens empilháveis só compartilham pilha quando seus dados relevantes são compatíveis.
+7. Itens carregados por ator materializado são definidos antes da interação.
+8. Drops usam regras previamente declaradas e resultado reproduzível.
+9. O GPT pode criar ou revisar conteúdo por operação válida, mas não altera retroativamente um snapshot.
+10. Toda operação persistente é validada e atômica.
 
 ## 3. Camadas do domínio
 
 ```text
 Definição de Item
+→ Variante opcional
 → Instância de Item
 → Pilha ou unidade individual
 → Localização
@@ -34,7 +38,7 @@ Definição de Item
 → Histórico
 ```
 
-## 4. Categorias de item
+## 4. Categorias
 
 ```text
 EQUIPMENT
@@ -49,67 +53,26 @@ TREASURE
 MISCELLANEOUS
 ```
 
-A categoria organiza o comportamento padrão, mas cada definição declara explicitamente suas propriedades.
-
-### 4.1 Equipamento
-
-Utiliza as regras de `equipment-v0.4` ou versão posterior:
-
-- slots;
-- modificadores;
-- ações concedidas;
-- passivas;
-- proficiências;
-- qualidade;
-- peso;
-- requisitos.
-
-### 4.2 Consumível
-
-Pode fornecer uma ou mais ações de uso e declarar:
-
-- quantidade consumida;
-- momento do consumo;
-- efeitos;
-- tempo de uso;
-- alvo;
-- cargas;
-- recipiente vazio ou subproduto.
-
-### 4.3 Munição
-
-É consumida por ações compatíveis, como disparos de arco, besta ou armas especiais.
-
-### 4.4 Material
-
-Pode ser utilizado em fabricação, reparo, aprimoramento, encantamento, coleta ou missão.
-
-### 4.5 Ferramenta
-
-Pode possuir qualidade, condição, durabilidade, proficiências requeridas e bônus de perícia.
-
-### 4.6 Item de missão ou chave
-
-Pode possuir restrições de descarte, venda, transferência, destruição e duplicação.
-
 ## 5. Definição de item
 
 A definição é reutilizável e versionada.
 
 ```json
 {
-  "code": "minor-healing-potion",
+  "code": "elven-dagger",
   "version": 1,
-  "name": "Poção de Cura Menor",
-  "category": "CONSUMABLE",
-  "stackable": true,
-  "stackLimit": 20,
-  "unitWeight": 0.25,
+  "name": "Adaga Élfica",
+  "category": "EQUIPMENT",
+  "referenceQuality": "COMMON",
+  "familyCode": "elven-dagger",
+  "variantCode": "BASE",
+  "stackable": false,
+  "unitWeight": 0.7,
   "currencyCode": "CROWN",
-  "baseBuyPrice": 30,
-  "baseSellPrice": 12,
-  "grantedActionCodes": ["drink-minor-healing-potion"],
-  "tags": ["POTION", "HEALING"],
+  "commonBaseBuyPrice": 120,
+  "commonBaseSellPrice": 48,
+  "equipmentProfileCode": "elven-dagger-equipment",
+  "tags": ["ELVEN", "DAGGER", "FINESSE"],
   "tradePolicy": {
     "tradable": true,
     "sellable": true,
@@ -119,81 +82,131 @@ A definição é reutilizável e versionada.
 }
 ```
 
-Campos comuns:
+A definição não recebe um novo código apenas porque uma unidade é Rara ou Épica.
 
-- código e versão;
-- nome e descrição;
-- categoria e tags;
-- empilhamento;
-- peso unitário;
-- preços-base;
-- ações, passivas ou proficiências concedidas;
-- políticas de comércio, descarte e destruição;
-- requisitos;
-- compatibilidades;
-- dados específicos da categoria.
+## 6. Variante
 
-## 6. Instância de item
-
-A instância representa o item concreto existente no mundo.
+Variante existe apenas quando há diferença real de identidade ou mecânica.
 
 ```json
 {
-  "itemInstanceId": "item-instance-id",
-  "definitionCode": "iron-dagger",
-  "definitionVersion": 3,
+  "familyCode": "elven-dagger",
+  "variantCode": "MOON_SILVER",
+  "name": "Adaga Élfica Lunar"
+}
+```
+
+Não é variante:
+
+- qualidade;
+- condição;
+- durabilidade;
+- fabricante;
+- proprietário;
+- nome personalizado sem efeito mecânico.
+
+Pode ser variante:
+
+- material estrutural diferente;
+- elemento;
+- distribuição de poder;
+- ações ou passivas diferentes;
+- receita ou função própria.
+
+## 7. Instância de item
+
+A instância representa uma unidade concreta.
+
+```json
+{
+  "itemInstanceId": "item-instance-001",
+  "definitionCode": "elven-dagger",
+  "definitionVersion": 1,
+  "variantCode": "BASE",
   "quantity": 1,
   "quality": "RARE",
+  "resolvedPowerBudget": {
+    "referenceCommonPoints": 10,
+    "qualityMultiplier": 1.4,
+    "maximumPoints": 14,
+    "usedPoints": 14
+  },
+  "resolvedModifiers": {
+    "physicalAttack": 11,
+    "physicalAccuracy": 3
+  },
+  "resolvedBaseBuyPrice": 240,
+  "resolvedBaseSellPrice": 96,
   "condition": {
-    "conditionPercent": 86,
-    "state": "USED"
+    "conditionPercent": 100,
+    "state": "PRISTINE"
   },
   "durability": {
-    "current": 72,
+    "current": 100,
     "maximum": 100
   },
-  "charges": null,
   "owner": {
     "ownerType": "ACTOR",
-    "ownerId": "bandit-1"
+    "ownerId": "player-1"
   },
   "location": {
-    "type": "EQUIPPED_SLOT",
-    "referenceId": "bandit-1",
-    "slot": "MAIN_HAND"
+    "type": "ACTOR_INVENTORY",
+    "referenceId": "player-1"
   },
   "binding": "UNBOUND",
   "provenance": {
-    "acquisitionMode": "GENERATED_WITH_ACTOR",
-    "sourceId": "bandit-1"
+    "acquisitionMode": "CRAFTED",
+    "craftedByActorId": "player-1"
+  },
+  "ruleVersions": {
+    "equipment": "equipment-v0.5",
+    "crafting": "crafting-v0.2",
+    "inventory": "inventory-v0.2"
   }
 }
 ```
 
-Uma instância pode possuir:
+A instância pode possuir:
 
 - qualidade concreta;
+- valores resolvidos;
 - condição e durabilidade;
-- quantidade;
 - cargas;
-- modificadores próprios permitidos;
 - nome personalizado;
 - vínculo;
 - origem;
 - proprietário;
 - localização;
 - estado de roubo;
-- histórico relevante.
+- histórico.
 
-## 7. Pilhas
+## 8. Congelamento dos valores
 
-Uma pilha representa várias unidades compatíveis.
+A instância guarda os resultados usados em sua criação:
+
+- definição e versão;
+- variante;
+- qualidade;
+- orçamento de poder;
+- modificadores;
+- preços-base;
+- ações ou passivas escaláveis;
+- versões de regra;
+- semente de geração.
+
+Alterar multiplicadores futuros não muda silenciosamente itens já criados. Migração exige operação explícita.
+
+## 9. Pilhas
+
+Uma pilha representa unidades compatíveis.
 
 ```json
 {
   "stackId": "stack-id",
   "definitionCode": "arrow",
   "definitionVersion": 1,
+  "variantCode": "BASE",
+  "quality": "COMMON",
   "quantity": 36,
   "stackLimit": 100,
   "unitWeight": 0.05,
@@ -201,33 +214,49 @@ Uma pilha representa várias unidades compatíveis.
 }
 ```
 
-### 7.1 Compatibilidade de pilha
+Itens só podem ser unidos quando forem compatíveis em:
 
-Itens somente podem ser mesclados quando forem compatíveis em todos os campos relevantes:
+- definição e versão;
+- variante;
+- qualidade;
+- condição ou faixa permitida;
+- cargas;
+- vínculo;
+- modificadores resolvidos;
+- estado de roubo;
+- proprietário e localização;
+- políticas especiais.
 
-- mesma definição e versão;
-- mesma qualidade, quando aplicável;
-- mesma condição ou faixa de condição definida;
-- mesmas cargas;
-- mesmo vínculo;
-- mesmos modificadores próprios;
-- mesma identificação e estado de roubo;
-- nenhuma propriedade única incompatível.
+Equipamentos com durabilidade ou histórico individual normalmente permanecem como instâncias separadas.
 
-Equipamentos individualizados normalmente não são empilháveis.
+## 10. Agrupamento visual
 
-### 7.2 Operações de pilha
+O frontend ou GPT pode agrupar visualmente sem perder as instâncias:
 
 ```text
-SPLIT_STACK
-MERGE_STACKS
-ADD_QUANTITY
-REMOVE_QUANTITY
+Adaga Élfica [Comum] ×2
+Adaga Élfica [Rara] ×1
 ```
 
-O backend impede quantidade negativa, excedente do limite ou duplicação.
+Internamente:
 
-## 8. Localizações de item
+```text
+item-001 COMMON
+item-002 COMMON
+item-003 RARE
+```
+
+O catálogo administrativo mostra uma única definição:
+
+```text
+Adaga Élfica
+├── 2 instâncias Comuns
+└── 1 instância Rara
+```
+
+## 11. Localização autoritativa
+
+Uma instância ou quantidade só pode estar em um local por vez:
 
 ```text
 ACTOR_INVENTORY
@@ -240,94 +269,55 @@ HARVEST_SOURCE
 STASH
 CRAFT_RESERVATION
 TRADE_RESERVATION
-DESTROYED
 CONSUMED
+DESTROYED
 ```
 
-Um item persistente deve possuir exatamente uma localização autoritativa por vez, salvo estruturas explicitamente compostas.
+A mesma unidade não pode estar equipada, vendida e reservada simultaneamente.
 
-## 9. Contêineres
+## 12. Propriedade e vínculo
 
-Um contêiner pode possuir outros itens.
+Proprietários:
 
-```json
-{
-  "containerId": "backpack-instance",
-  "containerType": "ITEM_INSTANCE",
-  "ownerActorId": "player-1",
-  "capacity": {
-    "maximumWeight": 25,
-    "maximumSlots": null
-  },
-  "contents": []
-}
+```text
+ACTOR
+PARTY
+FACTION
+MERCHANT
+WORLD
+UNOWNED
 ```
 
-A primeira versão prioriza peso. Volume, grade espacial e tamanho físico ficam opcionais para evolução futura.
+Vínculos:
 
-Contêineres podem ser:
+```text
+UNBOUND
+BOUND_TO_ACTOR
+BOUND_TO_PARTY
+BOUND_TO_FACTION
+QUEST_LOCKED
+```
 
-- mochila;
-- baú;
-- bolsa;
-- cofre;
-- cadáver;
-- pilha de saque;
-- estoque de comerciante;
-- depósito do grupo.
-
-## 10. Peso e capacidade de carga
+## 13. Peso e capacidade
 
 ```text
 Peso Total = soma(peso unitário × quantidade)
 ```
 
-O peso do item equipado continua contando para carga, salvo regra explícita.
-
-`carryCapacity` define a capacidade normal do ator.
-
 Faixas propostas:
 
 ```text
-NORMAL: peso ≤ 100% da capacidade
-ENCUMBERED: peso > 100% e ≤ 125%
-HEAVY: peso > 125% e ≤ 150%
-OVERLOADED: peso > 150%
+NORMAL
+ENCUMBERED
+HEAVY
+OVERLOADED
 ```
 
-Possíveis consequências, ainda sujeitas a simulação:
+Sobrecarga pode afetar movimento, velocidade de ação, corrida e custo de Vigor. Valores exatos precisam de simulação.
 
-- redução de `movementSpeed`;
-- redução de `physicalActionSpeed`;
-- aumento de custo de Vigor;
-- limitação de corrida;
-- impossibilidade de usar certas ações quando sobrecarregado.
+## 14. Consumíveis, munições e cargas
 
-O backend calcula a faixa e entrega os modificadores finais. O GPT não inventa penalidades diferentes das regras carregadas.
-
-## 11. Equipar e desequipar
-
-Equipar é uma transferência entre `ACTOR_INVENTORY` e `EQUIPPED_SLOT`.
-
-O backend valida:
-
-- propriedade;
-- existência da instância;
-- requisitos;
-- slots permitidos;
-- slots ocupados;
-- uso de uma ou duas mãos;
-- incompatibilidades;
-- condições mínimas;
-- vínculo;
-- estado do ator;
-- tempo ou ação necessária, quando estiver em encontro.
-
-A operação é atômica. Se um item de duas mãos exigir liberar a mão secundária, todas as mudanças devem ser aplicadas juntas ou nenhuma é persistida.
-
-## 12. Consumíveis, munições e cargas
-
-Uma ação declara o recurso material necessário:
+A ação declara o item necessário:
 
 ```json
 {
@@ -341,7 +331,7 @@ Uma ação declara o recurso material necessário:
 }
 ```
 
-Momentos possíveis:
+Momentos:
 
 ```text
 ON_START
@@ -349,55 +339,55 @@ ON_RESOLVE
 ON_SUCCESS
 ```
 
-O snapshot deve informar as pilhas e instâncias disponíveis. O GPT registra a unidade utilizada; o backend confirma a remoção.
+- flecha disparada reduz a pilha;
+- poção bebida deixa o inventário;
+- ferramenta pode perder durabilidade;
+- item com cargas reduz `charges.current`;
+- item consumido não aparece depois no saque.
 
-Exemplos:
-
-- uma flecha disparada deixa a pilha de munição;
-- uma poção bebida deixa o inventário;
-- uma poção interrompida pode ou não ser consumida conforme a ação;
-- uma ferramenta pode perder durabilidade sem desaparecer;
-- um item com cargas reduz `charges.current`.
-
-## 13. Propriedade, vínculo e origem
-
-### 13.1 Propriedade
+## 15. Reservas
 
 ```text
-ACTOR
-PARTY
-FACTION
-MERCHANT
-WORLD
-UNOWNED
+CRAFT_RESERVATION
+TRADE_RESERVATION
+QUEST_RESERVATION
+SYSTEM_RESERVATION
 ```
 
-### 13.2 Vínculo
+Enquanto reservado, o item não pode ser usado por operação incompatível.
+
+## 16. Condição e durabilidade
 
 ```text
-UNBOUND
-BOUND_TO_ACTOR
-BOUND_TO_PARTY
-BOUND_TO_FACTION
-QUEST_LOCKED
+Qualidade = potencial da instância
+Condição = conservação atual
+Durabilidade = desgaste mecânico
 ```
 
-### 13.3 Origem e proveniência
+Estados:
+
+```text
+PRISTINE
+USED
+WORN
+DAMAGED
+BROKEN
+DESTROYED
+```
+
+Item quebrado pode perder ações, modificadores ou possibilidade de equipar, conforme regra carregada.
+
+## 17. Proveniência e roubo
 
 Pode registrar:
 
 - fabricado por;
 - encontrado em;
-- recebido em missão;
 - comprado de;
 - saqueado de;
 - roubado de;
-- criado junto a um ator;
-- gerado por evento.
-
-Esses dados ajudam comércio, reputação, crimes, missões e narrativa.
-
-## 14. Itens roubados e restritos
+- recebido em missão;
+- gerado com ator ou evento.
 
 ```json
 {
@@ -410,73 +400,23 @@ Esses dados ajudam comércio, reputação, crimes, missões e narrativa.
 }
 ```
 
-O estado de roubo não altera automaticamente a definição. Ele pertence à instância.
+## 18. Fontes de saque
 
-Comerciantes podem recusar, denunciar ou pagar menos conforme regras econômicas e conhecimento do crime.
+### Itens carregados
 
-## 15. Condição e durabilidade
+Equipamentos, inventário, consumíveis, munições, ferramentas e dinheiro realmente possuídos.
 
-Qualidade e condição são conceitos separados.
+### Drops naturais
 
-```text
-Qualidade = potencial e nível de fabricação
-Condição = estado atual de conservação
-Durabilidade = recurso mecânico de desgaste
-```
+Pele, carne, presas, essência, núcleo e materiais do corpo. Não ficam no inventário do ator.
 
-Estados propostos:
+### Recompensas externas
 
-```text
-PRISTINE
-USED
-WORN
-DAMAGED
-BROKEN
-DESTROYED
-```
+Baús, esconderijos, objetivos, objetos do cenário e recompensas de missão.
 
-Uma instância quebrada pode:
+Não devem ser atribuídas ao corpo sem regra explícita.
 
-- perder ações concedidas;
-- reduzir modificadores;
-- ficar inequipável;
-- exigir reparo;
-- continuar utilizável de forma limitada quando a definição permitir.
-
-As fórmulas de desgaste e reparo permanecem no sistema de fabricação e qualidade.
-
-## 16. Fontes de saque
-
-O saque é dividido em fontes distintas.
-
-### 16.1 Itens carregados
-
-São equipamentos, inventário, consumíveis, munições, ferramentas e dinheiro realmente possuídos pelo ator.
-
-Se forem consumidos, destruídos, transferidos ou perdidos antes da derrota, não aparecem no saque.
-
-### 16.2 Drops naturais
-
-Representam partes do corpo, essência, núcleo, pele, carne, presas, minérios incorporados ou outros recursos coletáveis.
-
-Não ficam no inventário do ator.
-
-### 16.3 Recompensas do encontro ou local
-
-Podem vir de:
-
-- baús;
-- esconderijos;
-- recompensas de missão;
-- objetos do cenário;
-- tesouros protegidos;
-- conclusão de objetivo.
-
-Não devem ser atribuídas ao corpo de um ator sem regra explícita.
-
-## 17. Regras de drop
-
-Uma definição pode declarar:
+## 19. Regras de drop
 
 ```json
 {
@@ -509,9 +449,7 @@ CHOICE
 SCRIPTED
 ```
 
-## 18. Momento da resolução do drop
-
-A política deve ser declarada:
+Momentos:
 
 ```text
 ON_MATERIALIZATION
@@ -520,26 +458,18 @@ ON_HARVEST
 ON_OBJECTIVE_COMPLETION
 ```
 
-Para evitar rerrolagem ou invenção, qualquer resultado aleatório usa a `generationSeed` da instância ou outra semente persistida.
+Resultados aleatórios usam semente persistida e não podem ser rerrolados ao recarregar.
 
-Mesmo quando o resultado exato só é revelado na derrota ou coleta, ele deve ser reproduzível e não pode mudar ao recarregar a cena.
+## 20. Condição do corpo
 
-## 19. Condição do corpo e coleta
+A forma da derrota só altera coleta quando a regra já existir:
 
-A forma de derrota pode afetar drops naturais somente quando a regra existir antes da resolução.
+- corpo queimado pode danificar pele;
+- cabeça destruída pode impedir presas intactas;
+- núcleo removido não reaparece;
+- veneno não destrói carne sem regra declarada.
 
-Exemplos:
-
-- corpo queimado reduz qualidade da pele;
-- cabeça destruída impede coleta de presas intactas;
-- núcleo removido por habilidade especial deixa de aparecer depois;
-- veneno não destrói automaticamente carne sem regra declarada.
-
-O GPT registra os fatos mecânicos relevantes. O backend aplica as condições das regras de coleta.
-
-## 20. Pilha de saque
-
-Ao derrotar ou abandonar um ator, itens recuperáveis podem ser transferidos para uma pilha de saque ou cadáver.
+## 21. Pilha de saque
 
 ```json
 {
@@ -555,232 +485,72 @@ Ao derrotar ou abandonar um ator, itens recuperáveis podem ser transferidos par
 }
 ```
 
-A pilha deve refletir o estado final real:
+A pilha reflete o estado real final.
 
-- itens consumidos não aparecem;
-- equipamentos destruídos podem aparecer como sucata;
-- dinheiro transferido antes da derrota não reaparece;
-- munição restante mantém a quantidade correta.
-
-## 21. Saque e conhecimento do jogador
-
-O backend pode conhecer todo o conteúdo, enquanto o jogador conhece apenas o que foi observado ou procurado.
-
-Estados possíveis:
+## 22. Operações
 
 ```text
-VISIBLE
-CONCEALED
-HIDDEN
-IDENTIFIED
-UNIDENTIFIED
-```
-
-Buscar um corpo, abrir um contêiner ou usar Avaliação pode revelar itens conforme ação, tempo, perícia, ocultação e contexto.
-
-O GPT não revela itens ocultos antes de uma descoberta válida.
-
-## 22. Operações canônicas
-
-```text
-ADD_ITEM
-REMOVE_ITEM
-MOVE_ITEM
+CREATE_INSTANCE
 TRANSFER_ITEM
 SPLIT_STACK
-MERGE_STACKS
+MERGE_STACK
 EQUIP_ITEM
 UNEQUIP_ITEM
 CONSUME_ITEM
 USE_CHARGE
-DAMAGE_ITEM
-REPAIR_ITEM
-DROP_ITEM
-LOOT_ITEM
-HARVEST_ITEM
-DESTROY_ITEM
-RESERVE_FOR_CRAFT
+RESERVE_ITEM
 RELEASE_RESERVATION
-RESERVE_FOR_TRADE
+DROP_ITEM
+DESTROY_ITEM
+LOOT_ITEM
+HARVEST_RESOURCE
+REPAIR_ITEM
+MIGRATE_INSTANCE
 ```
 
-Toda operação informa:
+## 23. Criação e revisão
 
-- ator ou origem;
-- destino;
-- instância ou pilha;
-- quantidade;
-- versão do estado;
-- motivo;
-- regra utilizada.
+O GPT pode:
 
-## 23. Reservas
+- localizar definição existente;
+- propor nova definição ou variante;
+- criar instância por operação válida;
+- revisar definição, variante ou instância;
+- solicitar migração explícita.
 
-Itens usados em fabricação ou comércio podem ser reservados para impedir uso duplo.
+O backend deve impedir duplicação semântica, validar qualidade, orçamento, localização, propriedade e histórico.
 
-```json
-{
-  "reservationId": "reservation-id",
-  "type": "CRAFT_RESERVATION",
-  "itemInstanceIds": [],
-  "stackAllocations": [],
-  "expiresAt": null
-}
-```
-
-Enquanto reservados, não podem ser vendidos, consumidos, equipados ou reservados por outra operação incompatível.
-
-## 24. Criação e revisão pelo GPT
-
-O GPT pode propor:
-
-- nova definição de item;
-- nova instância permitida por uma regra;
-- correção de categoria;
-- ajuste de empilhamento;
-- revisão de peso;
-- revisão de preço-base;
-- alteração de ação concedida;
-- correção de drop;
-- correção de vínculo ou política comercial;
-- migração de instâncias compatíveis.
-
-A proposta deve declarar:
-
-```text
-CORRECTION
-BALANCE_REVISION
-NARRATIVE_EVOLUTION
-INSTANCE_STATE_CHANGE
-MIGRATION
-```
-
-O backend valida coerência, orçamento, propriedade, localização, impacto econômico, vínculos e histórico.
-
-Uma revisão não acrescenta retroativamente itens a um inventário congelado sem uma causa válida de estado, evento ou migração explícita.
-
-## 25. Sessão de inventário ou saque
-
-Operações simples podem ser diretas. Interações complexas podem usar snapshot.
-
-```json
-{
-  "inventorySessionId": "inventory-session-id",
-  "stateVersion": 21,
-  "ruleVersions": {
-    "inventory": "inventory-v0.1",
-    "equipment": "equipment-v0.4",
-    "actors": "actors-v0.1"
-  },
-  "actor": {},
-  "containers": [],
-  "equipmentSlots": {},
-  "availableOperations": [],
-  "weightSummary": {},
-  "constraints": {}
-}
-```
-
-O GPT pode conduzir:
-
-- inspeção;
-- comparação;
-- seleção múltipla;
-- organização;
-- saque;
-- equipar e desequipar;
-- descarte;
-- preparação para comércio ou fabricação.
-
-Ao final, envia operações consolidadas. O backend recalcula e persiste atomicamente.
-
-## 26. Erros acionáveis
-
-Exemplo de munição insuficiente:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INSUFFICIENT_ITEM_QUANTITY",
-    "message": "A ação exige 1 Flecha, mas nenhuma unidade compatível está disponível.",
-    "details": {
-      "definitionCode": "arrow",
-      "required": 1,
-      "available": 0
-    },
-    "recoveryActions": [
-      "Escolha outra ação.",
-      "Equipe ou transfira munição compatível.",
-      "Cancele o disparo antes da resolução."
-    ]
-  }
-}
-```
-
-Exemplo de item ocupado:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ITEM_RESERVED_BY_ANOTHER_OPERATION",
-    "message": "O material está reservado por uma sessão de fabricação ativa.",
-    "recoveryActions": [
-      "Conclua a fabricação.",
-      "Cancele a reserva.",
-      "Selecione outra instância compatível."
-    ]
-  }
-}
-```
-
-## 27. Responsabilidades
+## 24. Responsabilidades
 
 ### GPT
 
-- carregar o inventário ou snapshot necessário;
-- usar somente instâncias, pilhas e quantidades existentes;
-- distinguir conhecimento real de conteúdo oculto;
-- registrar consumo, munição, cargas e transferências;
-- não inventar saque após a derrota;
-- propor criação e revisão quando necessário;
-- avaliar sugestões do jogador segundo as regras;
-- enviar operações persistentes ao backend.
+- reutilizar definição existente;
+- não cadastrar o mesmo item por qualidade;
+- usar apenas quantidades e instâncias carregadas;
+- registrar consumo, transferência e saque;
+- propor variante somente com diferença real;
+- avaliar revisões de forma coerente.
 
 ### Backend
 
-- manter definições, instâncias, pilhas, propriedade e localização;
-- calcular peso e sobrecarga;
-- validar empilhamento, slots, consumo e quantidade;
-- controlar reservas;
-- resolver drops de forma reproduzível;
-- criar pilhas de saque e fontes de coleta;
-- transferir itens e moeda atomicamente;
-- impedir duplicação, quantidade negativa e uso duplo;
-- preservar versões, origem e histórico;
-- retornar erros acionáveis.
+- manter definições, variantes e instâncias;
+- resolver qualidade e valores finais;
+- controlar localização, propriedade e reservas;
+- validar pilhas, peso, slots e vínculos;
+- impedir duplicação e uso simultâneo;
+- preservar versões e proveniência;
+- aplicar operações atomicamente.
 
-### Frontend futuro
-
-- exibir inventário, peso, slots e contêineres;
-- diferenciar itens identificados, ocultos, vinculados e roubados;
-- permitir organização, comparação, equipamento e transferência;
-- mostrar reservas, durabilidade, condição e origem;
-- utilizar as mesmas operações e validações do GPT.
-
-## 28. Pendências de validação
+## 25. Pendências
 
 - limites de pilha por categoria;
-- faixas e penalidades de sobrecarga;
-- política definitiva de durabilidade;
-- compatibilidade por condição em pilhas;
-- tempo de saque e busca;
-- identificação de itens;
-- expiração de cadáveres e pilhas de saque;
-- acesso compartilhado do grupo;
-- divisão de saque;
-- recuperação de projéteis;
+- faixas de condição compatíveis em pilhas;
+- penalidades de sobrecarga;
+- durabilidade e reparo;
 - contêineres aninhados;
-- itens quebrados e sucata;
-- políticas completas para itens roubados, únicos e vinculados.
+- tempo de coleta e saque;
+- divisão de saque em grupo;
+- identificação de itens desconhecidos;
+- expiração de cadáveres e pilhas;
+- migração de instâncias;
+- agrupamento visual no frontend.

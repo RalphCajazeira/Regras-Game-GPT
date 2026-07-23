@@ -1,13 +1,22 @@
 # Integração entre GPT, Backend e Frontend
 
-**Versão da proposta:** `integration-v0.5`  
+**Versão da proposta:** `integration-v0.6`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Permitir que o GPT conduza interações com fluidez, crie e revise conteúdos quando necessário, enquanto o backend mantém autoridade sobre dados persistidos, regras versionadas, validações e consequências permanentes.
+Permitir que o GPT conduza interações com fluidez, crie e revise conteúdos e resolva sessões localmente, enquanto o backend mantém autoridade sobre dados persistidos, regras versionadas, validações e consequências permanentes.
 
-O padrão se aplica a atores, combate, comércio, perícias, profissões, fabricação e futuras sessões complexas.
+O padrão se aplica a:
+
+- atores e materialização;
+- combate;
+- inventário e saque;
+- comércio;
+- perícias e profissões;
+- fabricação;
+- criação e revisão de conteúdo;
+- futuras sessões complexas.
 
 ## 2. Regra central
 
@@ -17,45 +26,49 @@ GPT = condutor, criador, revisor e resolvedor local dentro das regras carregadas
 Frontend = visualização e administração usando o mesmo domínio.
 ```
 
-A autoridade do backend não torna os conteúdos imutáveis. O GPT pode propor, corrigir, balancear e evoluir qualquer conteúdo por meio das operações adequadas. O backend valida a proposta antes de persistir.
+A autoridade do backend não torna conteúdos imutáveis. O GPT pode propor, corrigir, balancear e evoluir qualquer conteúdo pelas operações adequadas. O backend valida a proposta antes de persistir.
+
+Depois que uma sessão começa, o GPT não acrescenta retroativamente recursos que não estavam no snapshot. Mudanças válidas exigem operação de estado, evento materializado, revisão com escopo explícito ou migração segura.
 
 ## 3. Responsabilidades
 
 ### GPT
 
 - interpretar a intenção do jogador;
-- carregar fichas, ações, perícias, receitas, estoques e conteúdos persistidos;
+- carregar fichas, inventários, ações, perícias, receitas, estoques e conteúdos persistidos;
 - usar regras e parâmetros versionados;
 - manter estado local da sessão;
 - calcular chances, danos, tempos, posições, preços e resultados permitidos;
-- registrar rolagens e decisões;
-- identificar quando uma entidade precisa ser materializada;
+- registrar rolagens, operações e decisões;
+- identificar quando uma entidade ou contêiner precisa ser materializado;
 - propor definições novas quando não existir conteúdo compatível;
 - revisar conteúdos incoerentes, incompletos ou desbalanceados;
 - avaliar sugestões do jogador em vez de aplicá-las automaticamente;
-- não inventar atributos, perícias, passivas, receitas, itens, custos ou recompensas durante uma resolução já iniciada;
+- usar somente itens, quantidades, cargas, munições, dinheiro e recompensas existentes;
 - enviar histórico e resultado consolidado quando houver alteração persistente.
 
 ### Backend
 
-- persistir atores, itens, ações, perícias, profissões, passivas, receitas, comerciantes e sessões;
-- calcular atributos secundários e pontuações efetivas;
+- persistir atores, itens, pilhas, localizações, propriedade, ações, perícias, profissões, passivas, receitas, comerciantes e sessões;
+- calcular atributos secundários, peso, sobrecarga e pontuações efetivas;
 - calcular preços-base, faixas comerciais e limites de qualidade;
-- fornecer regras, orçamentos e conteúdos necessários para criação e revisão;
+- fornecer regras, orçamentos e conteúdos para criação e revisão;
+- materializar atores, inventários, contêineres e drops reproduzíveis;
 - gerar snapshots completos;
 - controlar `stateVersion` e versões de regras;
 - validar e reproduzir resoluções;
 - validar propostas de criação, correção, balanceamento e evolução;
-- aplicar consumo, criação, XP, níveis, saldos e propriedade atomicamente;
-- preservar IDs, vínculos, versões e histórico;
+- controlar reservas de comércio e fabricação;
+- aplicar consumo, criação, XP, níveis, saldos, propriedade e localização atomicamente;
+- preservar IDs, vínculos, versões, origem e histórico;
 - retornar erros acionáveis;
 - manter auditoria.
 
 ### Frontend futuro
 
-- exibir fichas, perícias, profissões, passivas e receitas;
-- mostrar equipamentos e ações concedidas;
-- acompanhar combate, comércio e fabricação;
+- exibir fichas, inventários, peso, slots, perícias, profissões, passivas e receitas;
+- mostrar equipamentos, ações concedidas, condição, durabilidade e reservas;
+- acompanhar combate, saque, comércio e fabricação;
 - apresentar chances, rolagens, tempos, qualidade e histórico;
 - permitir revisão administrativa usando as mesmas operações e validações do GPT;
 - apresentar versões, motivos de revisão e escopo de aplicação.
@@ -94,11 +107,12 @@ resolutionPolicy
     "combat": "combat-v0.2",
     "equipment": "equipment-v0.4",
     "actions": "actions-v0.1",
-    "economy": "economy-v0.1",
+    "economy": "economy-v0.2",
     "skills": "skills-v0.1",
     "crafting": "crafting-v0.1",
     "actors": "actors-v0.1",
-    "integration": "integration-v0.5"
+    "inventory": "inventory-v0.1",
+    "integration": "integration-v0.6"
   }
 }
 ```
@@ -108,8 +122,6 @@ Toda resolução ou revisão persistente informa as versões utilizadas.
 ## 6. Atores e materialização
 
 O GPT não precisa materializar toda entidade observada.
-
-Fluxo:
 
 ```text
 avistamento mínimo
@@ -121,55 +133,205 @@ avistamento mínimo
 → snapshot congelado é utilizado
 ```
 
-O snapshot de ator materializado deve conter, quando aplicável:
+O snapshot de ator materializado contém, quando aplicável:
 
 - identidade, natureza, espécie e arquétipo;
 - nível e categoria de ameaça;
 - cinco atributos primários e secundários;
 - recursos atuais e máximos;
 - ações, magias, habilidades e passivas;
-- equipamentos, inventário, consumíveis e dinheiro;
+- equipamentos, inventário, consumíveis, munições e dinheiro;
 - XP, drops e materiais coletáveis;
 - facção, comportamento, moral e objetivos;
 - vínculos, domesticação, recrutamento e grupo;
 - conhecimento disponível ao jogador;
 - semente de geração e versões usadas.
 
-Depois da materialização, o GPT não acrescenta retroativamente recursos que não existiam. Revisões estruturais seguem o fluxo de revisão e não alteram silenciosamente uma sessão em andamento.
+Depois da materialização, o GPT não acrescenta retroativamente recursos que não existiam. Revisões estruturais não alteram silenciosamente sessão em andamento.
 
 ## 7. Combate
 
 O snapshot de combate contém:
 
 - participantes materializados e relações;
-- cinco atributos primários e secundários finais;
+- atributos e recursos finais;
 - posições em metros;
 - ambiente, obstáculos e coberturas;
 - `combatTime`, `nextReadyAt` e fila de eventos;
 - ações disponíveis e ações em preparação;
-- recursos, condições, recargas e engajamentos;
+- equipamentos e inventário relevante;
+- pilhas de munição, consumíveis, cargas e durabilidade;
+- condições, recargas e engajamentos;
 - política de rolagens.
 
-O GPT mantém a linha do tempo localmente e envia declaração, resolução e estado antes/depois de cada evento relevante.
+O GPT mantém a linha do tempo localmente e registra declaração, resolução e estado antes/depois de cada evento relevante.
 
-O backend valida alcance, tempos, custos, rolagens, dano, condições e resultado final.
+O backend valida:
 
-## 8. Comércio
+- alcance e linha de visão;
+- tempos e prioridades;
+- recursos e custos;
+- existência de munição, consumível ou carga;
+- momento do consumo;
+- rolagens, dano e condições;
+- durabilidade e destruição quando aplicáveis;
+- resultado final.
+
+Um item consumido ou destruído durante o combate não pode reaparecer no saque.
+
+## 8. Inventário, equipamento e saque
+
+### 8.1 Snapshot de inventário
+
+```json
+{
+  "inventorySessionId": "inventory-session-id",
+  "stateVersion": 21,
+  "ruleVersions": {
+    "inventory": "inventory-v0.1",
+    "equipment": "equipment-v0.4",
+    "actors": "actors-v0.1",
+    "integration": "integration-v0.6"
+  },
+  "actor": {},
+  "inventory": {
+    "stacks": [],
+    "instances": [],
+    "containers": [],
+    "equipmentSlots": {},
+    "currencyBalance": 0,
+    "weightSummary": {}
+  },
+  "availableOperations": [],
+  "constraints": {},
+  "activeReservations": []
+}
+```
+
+### 8.2 Estado local permitido
+
+O GPT pode preparar localmente:
+
+- seleção e comparação de itens;
+- divisão ou união de pilhas;
+- proposta de equipar ou desequipar;
+- organização entre contêineres;
+- consumo ou uso de cargas em sessão compatível;
+- saque e coleta;
+- descarte ou destruição permitida;
+- separação para comércio;
+- separação para fabricação.
+
+Nenhuma propriedade ou localização é alterada persistentemente antes da confirmação do backend.
+
+### 8.3 Operações consolidadas
+
+```json
+{
+  "inventorySessionId": "inventory-session-id",
+  "baseStateVersion": 21,
+  "operations": [
+    {
+      "type": "TRANSFER_ITEM",
+      "itemInstanceId": "item-id",
+      "from": { "type": "CORPSE_LOOT", "referenceId": "loot-id" },
+      "to": { "type": "ACTOR_INVENTORY", "referenceId": "player-id" },
+      "quantity": 1
+    }
+  ]
+}
+```
+
+### 8.4 Validação do backend
+
+O backend confere:
+
+1. sessão e versão;
+2. existência da instância ou pilha;
+3. quantidade;
+4. propriedade e acesso;
+5. localização atual;
+6. compatibilidade de pilha;
+7. capacidade e peso;
+8. slots e requisitos;
+9. vínculo e política de comércio;
+10. reservas ativas;
+11. ausência de duplicação;
+12. resultado atômico.
+
+### 8.5 Saque e drops
+
+O snapshot de saque pode conter:
+
+- equipamentos recuperáveis;
+- inventário restante;
+- dinheiro;
+- itens ocultos ainda não revelados;
+- fontes de coleta;
+- regras de acesso;
+- condições do corpo;
+- semente e política de resolução.
+
+O backend resolve ou reproduz drops usando a semente persistida. Recarregar a sessão não concede nova rolagem.
+
+## 9. Reservas e prevenção de uso duplo
+
+Itens podem ser reservados por:
+
+```text
+CRAFT_RESERVATION
+TRADE_RESERVATION
+QUEST_RESERVATION
+SYSTEM_RESERVATION
+```
+
+Enquanto uma quantidade estiver reservada, ela não pode ser simultaneamente:
+
+- consumida;
+- vendida;
+- transferida;
+- equipada;
+- destruída;
+- reservada por operação incompatível.
+
+Exemplo:
+
+```json
+{
+  "reservationId": "reservation-id",
+  "type": "CRAFT_RESERVATION",
+  "allocations": [
+    {
+      "stackId": "iron-ingot-stack",
+      "quantity": 3
+    }
+  ],
+  "sessionId": "craft-session-id"
+}
+```
+
+A conclusão consome ou libera a reserva conforme o resultado. Cancelamento seguro libera recursos que não foram consumidos.
+
+## 10. Comércio
 
 O snapshot comercial contém:
 
 - saldo do jogador e comerciante;
-- estoque e quantidades;
+- estoque como instâncias e pilhas reais;
+- propriedade, condição, vínculo e estado de roubo;
 - categorias aceitas;
 - preços de referência;
 - faixas mínima e máxima;
 - reputação e relação;
-- perícia de Comércio e passivas aplicáveis;
-- regras de negociação.
+- perícia de Comércio e passivas;
+- regras de negociação;
+- reservas ativas.
 
-O GPT conduz diálogo e contrapropostas. O backend confirma preços, saldo, estoque, propriedade e transferência atômica.
+O GPT conduz diálogo e contrapropostas. O backend confirma preço, saldo, estoque, propriedade, quantidade e transferência atômica.
 
-## 9. Sessão de perícia
+Ao iniciar confirmação de uma negociação, os itens podem ser colocados em `TRADE_RESERVATION` para impedir consumo ou venda simultânea.
+
+## 11. Sessão de perícia
 
 ```json
 {
@@ -178,7 +340,7 @@ O GPT conduz diálogo e contrapropostas. O backend confirma preços, saldo, esto
   "ruleVersions": {
     "attributes": "attributes-v0.4",
     "skills": "skills-v0.1",
-    "integration": "integration-v0.5"
+    "integration": "integration-v0.6"
   },
   "actor": {},
   "skill": {
@@ -193,22 +355,9 @@ O GPT conduz diálogo e contrapropostas. O backend confirma preços, saldo, esto
 }
 ```
 
-Usada quando uma interação exige escolhas ou várias etapas, mas não precisa de chamadas a cada decisão.
+O log registra perícia, atributos, pesos, dificuldade, passivas, rolagens, resultado, custos e XP reportado. O backend calcula XP autoritativo.
 
-O log registra:
-
-- perícia selecionada;
-- atributos e pesos aplicados;
-- dificuldade;
-- passivas e modificadores;
-- rolagens;
-- resultado;
-- custos;
-- XP reportado.
-
-O backend calcula o XP autoritativo.
-
-## 10. Sessão de fabricação
+## 12. Sessão de fabricação
 
 ```json
 {
@@ -217,16 +366,17 @@ O backend calcula o XP autoritativo.
   "ruleVersions": {
     "attributes": "attributes-v0.4",
     "equipment": "equipment-v0.4",
+    "inventory": "inventory-v0.1",
     "skills": "skills-v0.1",
     "crafting": "crafting-v0.1",
-    "integration": "integration-v0.5"
+    "integration": "integration-v0.6"
   },
   "actor": {},
   "profession": {},
   "skill": {},
   "recipe": {},
-  "materials": [],
-  "tools": [],
+  "reservedMaterials": [],
+  "reservedTools": [],
   "workspace": {},
   "resolution": {
     "successChance": 0,
@@ -236,24 +386,23 @@ O backend calcula o XP autoritativo.
 }
 ```
 
-O GPT pode conduzir preparação, escolhas permitidas, rolagens e narrativa.
-
 O backend valida:
 
 1. sessão e versão;
 2. receita conhecida;
 3. perícia e profissão;
-4. materiais, ferramentas e oficina;
-5. limites de qualidade;
-6. rolagens e resultado;
-7. consumo e subprodutos;
-8. item criado ou alterado;
-9. XP e progressão;
-10. atomicidade.
+4. materiais e ferramentas reservados;
+5. oficina;
+6. limites de qualidade;
+7. rolagens e resultado;
+8. consumo, desgaste e subprodutos;
+9. item criado ou alterado;
+10. XP e progressão;
+11. atomicidade.
 
-## 11. Criação de conteúdo
+## 13. Criação de conteúdo
 
-O GPT pode criar qualquer conteúdo necessário ao jogo quando não existir definição adequada:
+O GPT pode criar conteúdo necessário quando não existir definição adequada:
 
 - ator ou arquétipo;
 - espécie;
@@ -266,9 +415,7 @@ O GPT pode criar qualquer conteúdo necessário ao jogo quando não existir defi
 - receita;
 - comerciante;
 - comportamento;
-- regra de saque ou recrutamento.
-
-Fluxo recomendado:
+- regra de drop, saque ou recrutamento.
 
 ```text
 GPT identifica necessidade
@@ -280,13 +427,11 @@ GPT identifica necessidade
 → backend persiste versão aprovada
 ```
 
-O backend deve informar exatamente por que uma proposta falhou e como pode ser corrigida.
-
-## 12. Revisão de conteúdo
+## 14. Revisão de conteúdo
 
 Todo conteúdo pode ser revisado. Existência prévia não é motivo suficiente para rejeição.
 
-### 12.1 Motivos
+Motivos:
 
 ```text
 CORRECTION
@@ -297,23 +442,17 @@ SCOPE_PROMOTION
 MIGRATION
 ```
 
-### 12.2 Avaliação de sugestões
+Quando o jogador sugerir mudança, o GPT:
 
-Quando o jogador pedir uma revisão ou sugerir uma mudança, o GPT deve:
+1. consulta definição e versões;
+2. identifica problema ou objetivo;
+3. verifica regras, orçamento, propriedade e identidade temática;
+4. avalia impacto sobre vínculos e sessões;
+5. aceita, adapta ou recusa;
+6. explica objetivamente quando não fizer sentido;
+7. envia revisão estruturada.
 
-1. consultar a definição e suas versões;
-2. identificar o problema ou objetivo real;
-3. verificar regras, orçamento e identidade temática;
-4. avaliar consequências sobre conteúdos vinculados;
-5. aceitar, adaptar ou recusar a sugestão;
-6. explicar de forma objetiva quando a proposta não fizer sentido;
-7. enviar ao backend uma revisão estruturada.
-
-O GPT não deve obedecer a uma sugestão incoerente apenas porque foi solicitada.
-
-### 12.3 Escopo
-
-Toda revisão declara:
+Escopos:
 
 ```text
 DEFINITION_FUTURE_INSTANCES
@@ -322,51 +461,41 @@ SELECTED_INSTANCES
 ALL_COMPATIBLE_INSTANCES
 ```
 
-### 12.4 Versionamento
-
 Preferência:
 
-- manter o mesmo ID e código;
-- criar uma nova versão;
+- manter ID e código;
+- criar nova versão;
 - registrar motivo e justificativa;
 - preservar vínculos;
 - declarar política para instâncias existentes;
 - não recalcular eventos históricos;
 - permitir migração explícita quando segura.
 
-### 12.5 Coerência temática
-
-O GPT usa conhecimento, fontes e instruções para avaliar significado. O backend valida tags, compatibilidade, orçamento e schema.
-
-Uma combinação incomum pode ser aceita quando houver justificativa explícita. Uma incoerência acidental deve retornar erro acionável.
-
-## 13. Resolução direta ou por snapshot
+## 15. Resolução direta ou por snapshot
 
 ### Direta
 
-Adequada para operação curta e altamente autoritativa. O GPT envia a intenção e o backend calcula e persiste imediatamente.
+Adequada para operação curta e autoritativa, como mover uma unidade, consumir item simples ou equipar fora de encontro. O GPT envia intenção e o backend calcula e persiste.
 
 ### Snapshot
 
-Adequada quando existem escolhas, várias etapas, risco, preparação ou narrativa relevante. O GPT resolve localmente e envia o histórico final.
+Adequada quando existem escolhas, várias etapas, risco, preparação ou narrativa relevante. O GPT resolve localmente e envia histórico final.
 
-A escolha do modo pertence à operação ou política retornada pelo backend.
+A política da operação define o modo.
 
-## 14. Checkpoints
+## 16. Checkpoints
 
 Podem ser usados quando:
 
 - a sessão durar muito;
-- existir criação ou consumo importante;
+- houver criação, consumo ou transferência importante;
 - ocorrer mudança de fase;
 - a conversa puder ser interrompida;
-- houver consequência persistente relevante;
-- uma entidade temporária for promovida;
-- uma revisão precisar entrar em vigor antes da continuação.
+- houver consequência persistente relevante.
 
-Um checkpoint valida um trecho e retorna nova `stateVersion`.
+Checkpoint valida um trecho e retorna nova `stateVersion`.
 
-## 15. Concorrência
+## 17. Concorrência
 
 Se:
 
@@ -374,9 +503,15 @@ Se:
 baseStateVersion != currentStateVersion
 ```
 
-O backend rejeita a resolução e informa versão esperada, recebida, conflitos e ações de recuperação.
+O backend rejeita a submissão e informa:
 
-## 16. Aleatoriedade
+- versão esperada e recebida;
+- itens, pilhas ou atores alterados;
+- reservas conflitantes;
+- operações que podem ser reaplicadas;
+- ações de recarregar, reconciliar ou cancelar com segurança.
+
+## 18. Aleatoriedade
 
 Na primeira versão, o GPT pode gerar e registrar d100. O backend valida faixa e coerência, mas não prova aleatoriedade.
 
@@ -387,18 +522,21 @@ Modo auditável futuro:
 - pacote de rolagens;
 - assinatura do snapshot.
 
-## 17. Operações conceituais
+Drops materializados usam semente persistida mesmo antes do modo auditável completo.
+
+## 19. Operações conceituais
 
 ```text
-create/load/materialize/promote/reviseActor
-create/reviseContentDefinition
-reviewContentCoherence
+create/load/materialize/reviseActor
 create/load/checkpoint/submitEncounter
+create/load/submitInventorySession
+add/remove/move/transfer/equip/consume/loot/harvestItem
+reserve/releaseInventoryResources
 create/load/submitTradeSession
 create/load/submitSkillSession
 create/load/submitCraftSession
-migrateContentInstances
+create/revise/migrateContent
 cancelSession
 ```
 
-Os nomes definitivos dependem da API, mas cada operação deve possuir finalidade única e retorno acionável.
+Os nomes definitivos dependem da API, mas cada operação possui finalidade única, validação previsível e retorno acionável.

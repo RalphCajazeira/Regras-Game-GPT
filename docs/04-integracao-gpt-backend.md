@@ -1,11 +1,13 @@
 # Integração entre GPT, Backend e Frontend
 
-**Versão da proposta:** `integration-v0.7`  
+**Versão da proposta:** `integration-v0.8`  
 **Status:** em validação
 
 ## 1. Objetivo
 
 Permitir que o GPT conduza interações, crie e revise conteúdos e resolva sessões localmente, enquanto o backend mantém autoridade sobre dados persistidos, regras versionadas, validações e consequências permanentes.
+
+A integração deve funcionar dentro do limite de 30 Actions do GPT sem expor um endpoint para cada microação.
 
 ## 2. Regra central
 
@@ -19,11 +21,44 @@ Conteúdos não são imutáveis. O GPT pode propor correção, balanceamento, ev
 
 Depois que uma sessão começa, o GPT não acrescenta retroativamente recursos ausentes do snapshot.
 
-## 3. Responsabilidades
+## 3. Action Gateway
+
+A interface do GPT utiliza:
+
+```text
+REST + OpenAPI
+```
+
+Arquitetura:
+
+```text
+GPT
+↓
+Action Gateway com no máximo 30 operationIds
+↓
+Serviços de aplicação e domínio
+↓
+Persistência e integrações
+```
+
+Regras:
+
+- alvo inicial de 22 Actions expostas;
+- 8 vagas reservadas;
+- operações relacionadas são agrupadas por domínio;
+- serviços internos não contam como Actions;
+- endpoints administrativos não precisam ser expostos ao GPT;
+- GraphQL pode ser avaliado para o frontend, não como substituto das Actions do GPT;
+- não expor comandos arbitrários ou mutações genéricas sem schema.
+
+O contrato completo está em `operations-v0.1`.
+
+## 4. Responsabilidades
 
 ### GPT
 
 - interpretar a intenção do jogador;
+- escolher a Action e a operação interna compatíveis;
 - carregar fichas, definições, variantes, instâncias, ações, perícias, receitas e estoques;
 - usar regras e parâmetros versionados;
 - manter estado local;
@@ -34,6 +69,7 @@ Depois que uma sessão começa, o GPT não acrescenta retroativamente recursos a
 - propor variante somente quando houver diferença real;
 - usar somente itens, quantidades, cargas, dinheiro e recompensas existentes;
 - avaliar sugestões do jogador;
+- seguir `recoveryActions` e `availableNextOperations` retornados;
 - enviar histórico e resultado consolidado.
 
 ### Backend
@@ -42,14 +78,16 @@ Depois que uma sessão começa, o GPT não acrescenta retroativamente recursos a
 - localizar conteúdo equivalente e impedir duplicação semântica;
 - calcular atributos, orçamento, preços, qualidade e pontuações efetivas;
 - materializar atores, inventários, contêineres e drops;
-- gerar snapshots completos;
+- gerar snapshots completos ou deltas;
 - controlar `stateVersion` e versões de regras;
 - validar e reproduzir resoluções;
 - controlar reservas;
 - aplicar consumo, criação, XP, saldos, propriedade e localização atomicamente;
 - congelar valores resolvidos nas instâncias;
 - preservar IDs, versões, vínculos, origem e histórico;
-- retornar erros acionáveis.
+- garantir idempotência nas mutações críticas;
+- retornar erros acionáveis com próxima operação sugerida;
+- manter o schema exposto dentro do orçamento de Actions.
 
 ### Frontend
 
@@ -57,9 +95,10 @@ Depois que uma sessão começa, o GPT não acrescenta retroativamente recursos a
 - agrupar instâncias por definição, variante e qualidade;
 - mostrar valores resolvidos, condição, durabilidade e proveniência;
 - acompanhar combate, saque, comércio e fabricação;
-- permitir revisão administrativa com as mesmas operações.
+- permitir revisão administrativa com os mesmos serviços de domínio;
+- poder usar REST ou GraphQL futuramente sem duplicar regras.
 
-## 4. Padrão de sessão
+## 5. Padrão de sessão
 
 ```text
 1. GPT solicita criação ou carregamento.
@@ -81,10 +120,15 @@ stateVersion
 ruleVersions
 lifecycleStatus
 snapshot
+snapshotDelta
 resolutionPolicy
+availableOperations
+availableNextOperations
+constraints
+recoveryActions
 ```
 
-## 5. Versões
+## 6. Versões
 
 ```json
 {
@@ -98,14 +142,154 @@ resolutionPolicy
     "crafting": "crafting-v0.2",
     "actors": "actors-v0.1",
     "inventory": "inventory-v0.2",
-    "integration": "integration-v0.7"
+    "operations": "operations-v0.1",
+    "integration": "integration-v0.8"
   }
 }
 ```
 
 Toda resolução, criação ou revisão persistente informa as versões utilizadas.
 
-## 6. Identidade de item no snapshot
+## 7. Catálogo resumido de Actions
+
+O catálogo inicial possui 22 Actions:
+
+```text
+loadGame
+searchContent
+getContent
+manageContent
+materializeActors
+manageActor
+manageRelationships
+manageInventory
+startOrLoadEncounter
+checkpointEncounter
+submitEncounterResolution
+startOrLoadTrade
+submitTrade
+startOrLoadCraft
+submitCraftResolution
+startOrLoadSkillSession
+submitSkillResolution
+manageMission
+applyProgression
+advanceWorldTime
+manageWorldState
+cancelSession
+```
+
+Novos sistemas devem reutilizar uma Action existente sempre que pertencerem ao mesmo domínio e às mesmas invariantes.
+
+## 8. Envelope operacional comum
+
+Solicitação persistente:
+
+```json
+{
+  "operation": "ENUM_EXPLICITO",
+  "requestId": "request-id",
+  "idempotencyKey": "idempotency-key",
+  "baseStateVersion": 15,
+  "dryRun": false,
+  "context": {},
+  "payload": {}
+}
+```
+
+Resposta:
+
+```json
+{
+  "status": "SUCCESS",
+  "requestId": "request-id",
+  "previousStateVersion": 15,
+  "newStateVersion": 16,
+  "result": {},
+  "snapshotDelta": {},
+  "warnings": [],
+  "issues": [],
+  "recoveryActions": [],
+  "availableNextOperations": []
+}
+```
+
+`payload` é discriminado por `operation`; não é um JSON arbitrário.
+
+## 9. Prontidão e recuperação
+
+Antes de uma sessão complexa, o backend informa:
+
+```text
+READY
+INCOMPLETE
+INVALID
+REQUIRES_MATERIALIZATION
+REQUIRES_REVIEW
+```
+
+Status de operação:
+
+```text
+SUCCESS
+PARTIAL_SUCCESS
+REQUIRES_ACTION
+REQUIRES_MATERIALIZATION
+REQUIRES_REVIEW
+CONFLICT
+REJECTED
+CANCELLED
+```
+
+Erros precisam informar código, campo, regra, mensagem e correções possíveis.
+
+Exemplo:
+
+```json
+{
+  "status": "REQUIRES_ACTION",
+  "issues": [
+    {
+      "code": "ITEM_NOT_EQUIPPABLE",
+      "field": "targetSlot",
+      "message": "Uma arma de duas mãos já ocupa os dois slots."
+    }
+  ],
+  "recoveryActions": [
+    {
+      "operationId": "manageInventory",
+      "operation": "UNEQUIP",
+      "suggestedParameters": {
+        "itemInstanceId": "greatsword-instance"
+      }
+    }
+  ]
+}
+```
+
+## 10. Idempotência e concorrência
+
+Mutações que criam ou transferem valor usam `idempotencyKey`:
+
+- dinheiro;
+- itens;
+- XP;
+- drops;
+- recompensas;
+- fabricação;
+- progressão;
+- missões;
+- relações persistentes.
+
+Quando:
+
+```text
+baseStateVersion != currentStateVersion
+```
+
+O backend retorna `CONFLICT` com versões e opções de recarga, reaplicação segura ou cancelamento.
+
+## 11. Identidade de item no snapshot
 
 Todo item materializado deve permitir distinguir:
 
@@ -125,11 +309,9 @@ durability
 ruleVersions
 ```
 
-Qualidade sem `itemInstanceId` representa apenas uma simulação ou prévia, nunca uma nova definição automática.
+Qualidade sem `itemInstanceId` representa apenas simulação ou prévia, nunca nova definição automática.
 
-## 7. Criação de instância
-
-Fluxo:
+## 12. Criação de instância
 
 ```text
 GPT escolhe definição ou receita
@@ -141,7 +323,7 @@ GPT escolhe definição ou receita
 → valores resolvidos são congelados
 ```
 
-Exemplo de solicitação:
+Exemplo:
 
 ```json
 {
@@ -156,26 +338,9 @@ Exemplo de solicitação:
 }
 ```
 
-Exemplo de retorno:
+## 13. Prevenção de duplicação semântica
 
-```json
-{
-  "itemInstanceId": "item-003",
-  "definitionCode": "elven-dagger",
-  "definitionVersion": 1,
-  "variantCode": "BASE",
-  "quality": "RARE",
-  "resolvedPowerBudget": {},
-  "resolvedModifiers": {},
-  "resolvedBaseBuyPrice": 240,
-  "resolvedBaseSellPrice": 96,
-  "ruleVersions": {}
-}
-```
-
-## 8. Prevenção de duplicação semântica
-
-Antes de criar definição ou variante, o backend deve pesquisar por:
+Antes de criar definição ou variante, o backend pesquisa por:
 
 - código;
 - família;
@@ -197,22 +362,22 @@ CREATE_NEW_DEFINITION
 REVIEW_REQUIRED
 ```
 
-Mudança somente de qualidade sempre retorna `USE_EXISTING_DEFINITION` ou `USE_EXISTING_VARIANT`.
+Mudança somente de qualidade sempre reutiliza definição ou variante existente.
 
-## 9. Materialização de atores
+## 14. Materialização de atores
 
 ```text
 avistamento mínimo
 → interação provável
-→ GPT solicita materialização
+→ GPT usa materializeActors
 → backend carrega definições
 → cria ator, equipamentos e inventário completos
 → congela snapshot
 ```
 
-Itens do ator devem ser instâncias vinculadas a definições existentes, com qualidade e valores resolvidos.
+Itens do ator são instâncias vinculadas a definições existentes, com qualidade e valores resolvidos.
 
-## 10. Combate
+## 15. Combate
 
 O snapshot contém:
 
@@ -229,39 +394,30 @@ O backend valida existência do item, consumo, alcance, tempo, rolagens, dano e 
 
 Item consumido ou destruído não reaparece no saque.
 
-## 11. Inventário e saque
+## 16. Inventário e saque
 
-Snapshot:
+O domínio usa `manageInventory` com operações discriminadas como:
 
-```json
-{
-  "inventorySessionId": "inventory-session-id",
-  "stateVersion": 21,
-  "ruleVersions": {
-    "inventory": "inventory-v0.2",
-    "equipment": "equipment-v0.5",
-    "actors": "actors-v0.1",
-    "integration": "integration-v0.7"
-  },
-  "actor": {},
-  "inventory": {
-    "stacks": [],
-    "instances": [],
-    "containers": [],
-    "equipmentSlots": {},
-    "currencyBalance": 0,
-    "weightSummary": {}
-  },
-  "availableOperations": [],
-  "activeReservations": []
-}
+```text
+EQUIP
+UNEQUIP
+TRANSFER
+CONSUME
+LOOT
+HARVEST
+DROP
+DESTROY
+SPLIT_STACK
+MERGE_STACK
+RESERVE
+RELEASE_RESERVATION
 ```
 
 O backend valida existência, quantidade, propriedade, localização, compatibilidade de pilha, peso, slots, vínculo, reservas e ausência de duplicação.
 
-## 12. Comércio
+## 17. Comércio
 
-O snapshot comercial contém:
+`startOrLoadTrade` retorna:
 
 - instâncias e pilhas do estoque;
 - qualidade e condição;
@@ -272,11 +428,11 @@ O snapshot comercial contém:
 - perícia, passivas e relação;
 - reservas.
 
-A transação não altera definição, qualidade ou preço-base congelado da instância.
+`submitTrade` confirma a transação consolidada e idempotente.
 
-## 13. Fabricação
+## 18. Fabricação
 
-O snapshot contém:
+`startOrLoadCraft` retorna:
 
 - receita;
 - definição e variante de saída;
@@ -287,9 +443,9 @@ O snapshot contém:
 - perfil de distribuição;
 - versões das regras.
 
-O backend cria uma nova instância por sucesso, nunca uma nova definição por qualidade.
+`submitCraftResolution` cria uma nova instância por sucesso, nunca uma nova definição por qualidade.
 
-## 14. Revisão e migração
+## 19. Revisão e migração
 
 Motivos:
 
@@ -318,9 +474,9 @@ Preferência:
 - registrar motivo;
 - preservar vínculos;
 - não recalcular eventos históricos;
-- migrar instâncias apenas de forma explícita.
+- migrar instâncias apenas explicitamente.
 
-## 15. Congelamento
+## 20. Congelamento
 
 Instâncias persistem valores resolvidos para evitar alterações silenciosas quando mudarem:
 
@@ -331,25 +487,24 @@ Instâncias persistem valores resolvidos para evitar alterações silenciosas qu
 - passivas escaláveis;
 - fórmulas de fabricação.
 
-## 16. Operações conceituais
+## 21. Checkpoints, lotes e deltas
+
+Preferir operações em lote para materialização de grupos, transferências, comércio, consequências de encontro e fabricação em lote.
+
+Sessões longas suportam checkpoint, retomada e cancelamento por `cancelSession`.
+
+Depois do snapshot inicial, o backend pode retornar:
 
 ```text
-create/load/checkpoint/submitEncounter
-create/load/submitTradeSession
-create/load/submitSkillSession
-create/load/submitCraftSession
-create/load/submitInventorySession
-createItemDefinition
-createItemVariant
-createItemInstance
-reviewContent
-migrateInstances
-cancelSession
+snapshotDelta
+changedEntities
+invalidatedReferences
+requiredReloads
 ```
 
-## 17. Erros acionáveis
+## 22. Erros acionáveis
 
-Exemplos:
+Exemplos de códigos:
 
 ```text
 DUPLICATE_ITEM_DEFINITION
@@ -359,6 +514,11 @@ POWER_BUDGET_EXCEEDED
 INCOMPATIBLE_STACK
 INSTANCE_VERSION_CONFLICT
 MIGRATION_REQUIRED
+ACTION_NOT_AVAILABLE
+OPERATION_NOT_ALLOWED
+STATE_VERSION_CONFLICT
+IDEMPOTENCY_CONFLICT
+SNAPSHOT_INCOMPLETE
 ```
 
-O retorno deve explicar o problema e oferecer correções possíveis.
+O retorno sempre explica o problema e oferece correções possíveis.

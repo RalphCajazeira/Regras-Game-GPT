@@ -1,28 +1,26 @@
 # Sistema de Equipamentos
 
-**Versão da proposta:** `equipment-v0.3`  
+**Versão da proposta:** `equipment-v0.4`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Definir uma estrutura universal para qualquer item equipável. Todo equipamento utiliza os mesmos campos de modificadores, ainda que a maioria esteja em `0`.
+Definir uma estrutura universal para qualquer item equipável. Todo equipamento usa os mesmos campos de modificadores, inclusive quando o valor é `0`.
 
-O GPT propõe itens coerentes. O backend recalcula orçamento, valida slots, preços-base, peso e modificadores antes de persistir.
+O GPT propõe equipamentos coerentes. O backend valida estrutura, orçamento, slots, atributos, ações concedidas, peso e preços-base.
 
 ## 2. Princípios
 
-1. Todo item equipável declara todos os modificadores.
+1. Todo equipamento declara todos os modificadores.
 2. Campos não utilizados permanecem em `0`.
-3. Equipamentos podem alterar atributos primários e secundários.
-4. Nível e qualidade determinam o orçamento de poder.
-5. Penalidades negativas recuperam pontos para distribuição positiva.
-6. O custo líquido não pode ultrapassar o orçamento máximo.
-7. Todo item comercializável possui moeda e preços-base.
-8. O preço final pertence ao sistema de economia e comércio.
-9. A qualidade aumenta o preço, mas não altera automaticamente o peso.
-10. O peso depende de material, tamanho, estrutura e efeitos explícitos.
-11. Equipamentos de duas mãos ocupam os dois slots de mão.
-12. Armas e focos podem gerar ações completas com alcance e tempo próprios.
+3. Equipamentos podem alterar os cinco atributos primários e os secundários.
+4. Nível, qualidade e slot determinam o orçamento de poder.
+5. Penalidades negativas recuperam orçamento para bônus positivos.
+6. O custo líquido não pode ultrapassar o limite.
+7. Todo item comercializável possui moeda, preço-base de compra e preço-base de venda.
+8. Qualidade aumenta poder e preço, mas não altera automaticamente o peso.
+9. Peso depende de material, tamanho, estrutura e efeitos explícitos.
+10. Equipamentos podem conceder ações, proficiências ou passivas compatíveis.
 
 ## 3. Slots
 
@@ -45,34 +43,17 @@ ACCESSORY
 
 ### Corpo — `BODY`
 
-Representa roupa-base, aparência e proteção leve:
-
-- roupa comum;
-- traje de aventureiro;
-- túnica;
-- uniforme;
-- vestido;
-- vestes de viagem;
-- traje cerimonial.
-
-Pode não conceder bônus ou conceder modificadores mínimos. Permanece equipado sob o item de Peito.
+Roupa-base e aparência: traje de aventureiro, túnica, uniforme, vestido, vestes de viagem ou traje cerimonial. Pode fornecer bônus mínimos ou nulos e permanece sob o item de Peito.
 
 ### Peito — `CHEST`
 
-Representa proteção estrutural usada sobre a roupa:
-
-- cota de malha;
-- couraça;
-- peitoral de couro;
-- armadura de placas;
-- manto reforçado;
-- veste de batalha encantada.
+Proteção estrutural: cota de malha, couraça, peitoral de couro, armadura de placas, manto reforçado ou veste de batalha encantada.
 
 `BODY` e `CHEST` são independentes.
 
 ### Mãos — `HANDS`
 
-Luvas, manoplas e braçadeiras. Não deve ser confundido com `MAIN_HAND` e `OFF_HAND`.
+Luvas, manoplas e braçadeiras. Não se confunde com `MAIN_HAND` e `OFF_HAND`.
 
 ## 4. Ocupação das mãos
 
@@ -86,12 +67,7 @@ Luvas, manoplas e braçadeiras. Não deve ser confundido com `MAIN_HAND` e `OFF_
 }
 ```
 
-Permite:
-
-- adaga + adaga;
-- espada curta + escudo;
-- varinha + adaga;
-- cajado de uma mão + livro mágico.
+Permite adaga + adaga, espada + escudo, varinha + adaga e combinações equivalentes.
 
 ### Duas mãos
 
@@ -103,46 +79,13 @@ Permite:
 }
 ```
 
-Ao equipar, o backend marca as duas mãos como ocupadas pela mesma instância.
-
-Exemplos:
-
-- espada larga;
-- arco longo;
-- lança pesada;
-- machado de guerra;
-- cajado longo.
+O backend marca as duas mãos como ocupadas pela mesma instância.
 
 ### Versátil
 
-Reservado para evolução futura. Um item `VERSATILE` poderá possuir perfis diferentes para uma ou duas mãos.
+`VERSATILE` fica reservado para perfis diferentes de uma ou duas mãos.
 
-## 5. Ações concedidas pelo equipamento
-
-Armas, escudos, focos, grimórios e outros itens podem conceder ações.
-
-```json
-{
-  "grantedActionCodes": [
-    "basic-dagger-attack"
-  ]
-}
-```
-
-A definição completa da ação pertence a `07-sistema-de-acoes-habilidades-e-magias.md`.
-
-O equipamento não deve depender apenas de um valor narrativo de dano. A ação concedida declara:
-
-- alcance em metros;
-- preparação e recuperação;
-- escala de dano;
-- precisão;
-- custos;
-- reações;
-- efeitos;
-- política de interrupção.
-
-## 6. Qualidade
+## 5. Qualidade
 
 ```text
 INFERIOR
@@ -152,19 +95,17 @@ EPIC
 LEGENDARY
 ```
 
-Em português:
+| Qualidade | Multiplicador de poder | Multiplicador de preço proposto |
+|---|---:|---:|
+| Inferior | `0,60` | `0,50` |
+| Comum | `1,00` | `1,00` |
+| Raro | `1,40` | `2,00` |
+| Épico | `1,80` | `4,00` |
+| Lendário | `2,40` | `8,00` |
 
-- Inferior;
-- Comum;
-- Raro;
-- Épico;
-- Lendário.
+A qualidade representa fabricação, refinamento, encantamento ou técnica. Condição e conservação são conceitos separados.
 
-A qualidade representa fabricação, conservação inicial, pureza, refinamento, encantamento ou técnica especial.
-
-A condição atual do item é um conceito separado.
-
-## 7. Orçamento-base por nível
+## 6. Orçamento-base
 
 ```text
 Pontos-base do nível = 3 + (nível × 2)
@@ -179,34 +120,7 @@ Pontos-base do nível = 3 + (nível × 2)
 | 5 | 13 |
 | 10 | 23 |
 
-## 8. Multiplicadores de qualidade
-
-| Qualidade | Multiplicador de poder |
-|---|---:|
-| Inferior | `0,60` |
-| Comum | `1,00` |
-| Raro | `1,40` |
-| Épico | `1,80` |
-| Lendário | `2,40` |
-
-```text
-Pontos após qualidade =
-arredondar_para_baixo(
-  pontos-base do nível × multiplicador da qualidade
-)
-```
-
-No nível 1:
-
-| Qualidade | Pontos |
-|---|---:|
-| Inferior | 3 |
-| Comum | 5 |
-| Raro | 7 |
-| Épico | 9 |
-| Lendário | 12 |
-
-## 9. Multiplicador de slot
+## 7. Multiplicador de slot
 
 | Slot ou categoria | Multiplicador proposto |
 |---|---:|
@@ -231,19 +145,17 @@ máximo(
   1,
   arredondar_para_baixo(
     pontos-base
-    × multiplicador de qualidade
-    × multiplicador de slot
+    × multiplicador da qualidade
+    × multiplicador do slot
   )
 )
 ```
 
-Os multiplicadores ainda precisam de simulações.
+Os multiplicadores ainda precisam de simulação.
 
-## 10. Custos de distribuição
+## 8. Custos dos modificadores
 
-### Modificadores básicos
-
-| Modificador | Benefício por ponto gasto |
+| Modificador | Benefício por ponto |
 |---|---:|
 | ATK Físico | `+1` |
 | ATK Mágico | `+1` |
@@ -256,8 +168,6 @@ Os multiplicadores ainda precisam de simulações.
 | Resistência Física | `+1` |
 | Resistência Mental | `+1` |
 | Iniciativa | `+1` |
-| Velocidade de Ação Física | `+1` |
-| Velocidade de Conjuração | `+1` |
 | Percepção | `+1` |
 | Furtividade | `+1` |
 | Vida Máxima | `+5` |
@@ -265,25 +175,22 @@ Os multiplicadores ainda precisam de simulações.
 | Vigor Máximo | `+5` |
 | Capacidade de Carga | `+5` |
 
-### Modificadores especiais
+Custos especiais propostos:
 
-| Modificador | Custo proposto |
+| Modificador | Custo |
 |---|---:|
 | Atributo primário `+1` | `5` pontos |
 | Chance de Crítico `+1%` | `2` pontos |
 | Dano Crítico `+5%` | `2` pontos |
-| Velocidade de Movimento `+0,1 m/s` | `1` ponto |
+| Velocidade de Movimento `+0,5 m/s` | `3` pontos |
+| Velocidade de Ação Física `+1` | `2` pontos |
+| Velocidade de Conjuração `+1` | `2` pontos |
 
-Os custos são provisórios.
-
-A Velocidade de Movimento aceita precisão de uma casa decimal. O backend pode usar representação fixa internamente para evitar erros de ponto flutuante.
-
-## 11. Penalidades e recuperação
+## 9. Penalidades
 
 ```text
 Custo Líquido =
-Custo dos bônus positivos
-- pontos recuperados pelas penalidades
+custo positivo - recuperação negativa
 ```
 
 O item é válido quando:
@@ -295,42 +202,34 @@ Custo Líquido ≤ Pontos Máximos
 Exemplo:
 
 ```text
-Orçamento-base: 7
-DEF Física +7: 7 pontos
-DEF Mágica +2: 2 pontos
-Esquiva -2: recupera 2 pontos
-
-Pontos positivos: 9
-Recuperação negativa: 2
-Custo líquido: 7
+Orçamento: 7
+DEF Física +7 = 7
+DEF Mágica +2 = 2
+Esquiva -2 = recupera 2
+Custo líquido = 7
 ```
 
-Para modificadores com custo especial, a penalidade recupera o mesmo custo.
+Custos especiais são simétricos. `Agilidade -1`, por exemplo, recupera o mesmo custo de `Agilidade +1`.
 
-Exemplo:
+Penalidades precisam ser coerentes:
 
-```text
-Destreza -1 recupera 5 pontos
-```
-
-### Coerência
-
-- armadura pesada pode reduzir Esquiva, Iniciativa, Movimento, Ação Física ou Furtividade;
-- arma pesada pode reduzir Precisão, Iniciativa ou Ação Física;
-- foco arcano pode trocar capacidade física por ATK Mágico, Mana ou Conjuração;
+- armadura pesada pode reduzir Agilidade, Esquiva, movimento, Iniciativa ou Furtividade;
+- arma pesada pode reduzir precisão ou velocidade de ação;
+- foco arcano pode trocar capacidade física por poder mágico;
 - item amaldiçoado pode justificar trocas incomuns.
 
-Ainda não existe limite global definitivo de recuperação negativa.
+O limite global de recuperação negativa ainda precisa de testes.
 
-## 12. Estrutura universal de modificadores
+## 10. Estrutura universal de modificadores
 
 ```json
 {
   "primaryModifiers": {
     "strength": 0,
+    "agility": 0,
     "dexterity": 0,
-    "intelligence": 0,
-    "vitality": 0
+    "vitality": 0,
+    "intelligence": 0
   },
   "secondaryModifiers": {
     "maxHealth": 0,
@@ -359,67 +258,65 @@ Ainda não existe limite global definitivo de recuperação negativa.
 }
 ```
 
-Todos os campos devem existir mesmo quando forem `0`.
+## 11. Ações, perícias e passivas concedidas
 
-## 13. Identidade por categoria
+Um equipamento pode fornecer conteúdo mecânico previamente definido:
+
+```json
+{
+  "grantedActionCodes": ["basic-dagger-attack"],
+  "grantedPassiveCodes": ["balanced-grip-1"],
+  "grantedProficiencyCodes": []
+}
+```
+
+A definição do item não cria automaticamente ações arbitrárias. Os códigos precisam existir e ser compatíveis com slots, empunhadura e requisitos.
+
+## 12. Identidade por categoria
 
 ### Adaga
 
-Prioriza ATK Físico, Precisão Física, crítico, Destreza, Iniciativa e Ação Física. Concede ataque de curto alcance e preparação rápida.
-
-### Espada curta
-
-Prioriza ATK Físico, Precisão Física, pequena DEF Física e possível Defesa Crítica.
+Prioriza ATK Físico, Precisão Física, Destreza, velocidade de ação, crítico e Furtividade.
 
 ### Espada larga
 
-Prioriza ATK Físico elevado e Força; pode penalizar Precisão, Iniciativa, Movimento ou Ação Física. Sua ação possui preparação e recuperação maiores.
+Prioriza ATK Físico e Força; pode penalizar precisão, Agilidade ou velocidade de ação.
 
 ### Arco
 
-Prioriza Precisão Física e alcance. Seus disparos exigem preparação, munição e linha de visão.
+Prioriza Destreza, Precisão Física e ações de disparo. Agilidade pode favorecer reposicionamento e frequência por meio dos atributos do ator.
 
 ### Cajado
 
-Prioriza ATK Mágico, Mana, Inteligência, Precisão Mágica, Conjuração e DEF Mágica. Ainda pode conceder ataque físico, mesmo que fraco.
+Prioriza ATK Mágico, Mana, Inteligência, Precisão Mágica e DEF Mágica. Pode conceder ações mágicas ou passivas de conjuração.
 
 ### Escudo
 
-Prioriza DEF Física, DEF Mágica, Defesa Crítica e reações defensivas.
+Prioriza DEF Física, DEF Mágica, Defesa Crítica e ações defensivas.
 
 ### Roupa de Corpo
 
-Fornece aparência e bônus mínimos ou nulos. Pode favorecer Furtividade, Percepção, Mana, Vigor ou Conjuração.
+Aparência e bônus mínimos ou nulos. Pode favorecer Percepção, Furtividade, Mana ou Vigor.
 
 ### Peitoral pesado
 
-Prioriza DEF Física, Vida, Vitalidade e Defesa Crítica; pode penalizar Esquiva, Iniciativa, Movimento, Ação Física e Furtividade.
+Prioriza DEF Física, Vida, Vitalidade e Defesa Crítica; pode penalizar Agilidade, movimento, velocidade de ação e Furtividade.
 
 ### Botas
 
-Podem favorecer DEFs, Destreza, Esquiva, Iniciativa, Movimento e Furtividade.
+Podem favorecer DEFs, Agilidade, Esquiva, movimento, Iniciativa e Furtividade.
 
-## 14. Peso
+## 13. Peso
 
 A qualidade não altera automaticamente o peso.
 
 ```text
-Peso = função de material + tamanho + estrutura + efeitos explícitos
+Peso = material + tamanho + estrutura + efeitos explícitos
 ```
 
-Exemplo:
+O peso só muda por motivo concreto, como outro material, reforço, estrutura oca ou encantamento.
 
-```text
-Adaga de ferro inferior: 0,8 kg
-Adaga de ferro comum: 0,8 kg
-Adaga de ferro rara: 0,8 kg
-```
-
-O peso só muda por razão concreta.
-
-O peso total pode reduzir `movementSpeed` e outros valores conforme regras futuras de carga.
-
-## 15. Preços-base
+## 14. Preços-base
 
 Todo item comercializável possui:
 
@@ -429,48 +326,43 @@ baseBuyPrice
 baseSellPrice
 ```
 
-Código monetário:
+Moeda atual:
 
 ```text
 CROWN
 ```
 
-### Preço-base de compra
-
 ```text
-Preço-base de compra =
+baseBuyPrice =
 preço-base da categoria
 × fator de nível
-× multiplicador de preço da qualidade
-× multiplicador de material
-× multiplicador de fabricação
+× multiplicador de qualidade
+× material
+× fabricação
 × fator de poder utilizado
 ```
-
-```text
-Fator de nível = 1 + ((nível - 1) × 0,20)
-```
-
-| Qualidade | Multiplicador de preço |
-|---|---:|
-| Inferior | `0,50` |
-| Comum | `1,00` |
-| Raro | `2,00` |
-| Épico | `4,00` |
-| Lendário | `8,00` |
-
-```text
-fatorPoder = 0,75 + ((pontosUtilizados ÷ pontosMáximos) × 0,25)
-```
-
-### Preço-base de venda
 
 ```text
 baseSellPrice =
 arredondar_para_baixo(baseBuyPrice × 0,40)
 ```
 
-O preço final de transação pertence ao sistema econômico.
+Mercado, condição, especialidade e negociação pertencem ao sistema de economia.
+
+## 15. Fabricação
+
+A qualidade de um equipamento fabricado deve respeitar o sistema de fabricação:
+
+- receita;
+- material;
+- ferramenta;
+- oficina;
+- perícia;
+- profissão;
+- passivas;
+- teto de qualidade.
+
+Uma perícia elevada melhora a chance de qualidade, mas não ignora os limites de receita e materiais.
 
 ## 16. Exemplo resumido
 
@@ -487,85 +379,39 @@ O preço final de transação pertence ao sistema econômico.
   "handedness": "ONE_HANDED",
   "occupiedSlots": 1,
   "weight": 0.8,
-  "grantedActionCodes": ["basic-dagger-attack"],
-  "requirements": {
-    "level": 1,
-    "strength": 0,
-    "dexterity": 5,
-    "intelligence": 0,
-    "vitality": 0
-  },
   "primaryModifiers": {
     "strength": 0,
+    "agility": 0,
     "dexterity": 0,
-    "intelligence": 0,
-    "vitality": 0
+    "vitality": 0,
+    "intelligence": 0
   },
   "secondaryModifiers": {
-    "maxHealth": 0,
-    "maxMana": 0,
-    "maxStamina": 0,
     "physicalAttack": 3,
-    "magicalAttack": 0,
-    "physicalDefense": 0,
-    "magicalDefense": 0,
     "physicalAccuracy": 1,
-    "magicalAccuracy": 0,
-    "evasion": 0,
-    "criticalChance": 0,
-    "criticalDamage": 0,
-    "criticalDefense": 0,
-    "physicalResistance": 0,
-    "mentalResistance": 0,
-    "initiative": 1,
-    "movementSpeed": 0,
-    "physicalActionSpeed": 1,
-    "castingSpeed": 0,
-    "carryCapacity": 0,
-    "perception": 0,
-    "stealth": 0
+    "physicalActionSpeed": 1
   },
-  "powerBudget": {
-    "maximumPoints": 5,
-    "positiveCost": 5,
-    "negativeRefund": 0,
-    "netCost": 5
-  },
+  "grantedActionCodes": ["basic-dagger-attack"],
   "currencyCode": "CROWN",
   "baseBuyPrice": 40,
-  "baseSellPrice": 16,
-  "effects": [],
-  "tags": ["LIGHT_WEAPON", "FINESSE", "DUAL_WIELD_ALLOWED"]
+  "baseSellPrice": 16
 }
 ```
 
+No payload persistido completo, todos os campos de modificadores devem estar presentes, inclusive os zerados.
+
 ## 17. Validações do backend
 
-O backend valida:
-
 - estrutura completa;
-- nível e qualidade;
-- slots permitidos e ocupados;
-- requisitos;
+- nível, qualidade e material;
+- slots e empunhadura;
+- cinco atributos primários;
 - orçamento positivo, negativo e líquido;
+- ações, passivas e proficiências concedidas;
 - coerência de categoria;
-- modificadores temporais;
-- ações concedidas;
 - peso;
 - preços-base;
-- incompatibilidades de mãos;
-- limites dos atributos;
+- requisitos;
 - versão das regras.
 
-Erros devem informar valor esperado, recebido e ações de recuperação.
-
-## 18. Pendências
-
-- validar multiplicadores de slot;
-- calibrar custos dos modificadores temporais;
-- definir limite de recuperação negativa;
-- definir carga e penalidade por peso;
-- definir equipamentos versáteis;
-- calibrar tempos das ações concedidas por cada arma;
-- definir durabilidade e reparos;
-- validar preços-base junto da economia.
+Erros informam valor esperado, recebido e ações de recuperação.

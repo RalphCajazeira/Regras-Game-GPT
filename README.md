@@ -9,13 +9,13 @@ GPT
 → compreensão da intenção, criatividade, diálogo e narração
 
 Widget JS
-→ ficha, mapas, combate, inventário, loot, comércio e prévias
+→ ficha, mapas, combate, inventário, loot, comércio, treino e prévias
 
 MCP Server / Apps SDK
 → ponte tipada entre ChatGPT e serviços do jogo
 
 Backend
-→ validação, rolagens e cálculos oficiais, resolução e persistência
+→ validação, rolagens e cálculos oficiais, resolução, progressão e persistência
 
 PostgreSQL
 → estado durável, histórico, definições, instâncias e sessões
@@ -191,12 +191,12 @@ Toda mutação crítica usa idempotência, `stateVersion`, versões de regras e 
 ## Versões atuais
 
 ```text
-attributes-v0.4
+attributes-v0.5
 combat-v0.2
 equipment-v0.5
 actions-v0.1
 economy-v0.3
-skills-v0.1
+skills-v0.2
 crafting-v0.2
 actors-v0.1
 inventory-v0.2

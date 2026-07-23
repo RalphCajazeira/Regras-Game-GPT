@@ -1,13 +1,15 @@
 # Sistema de Equipamentos
 
-**Versão da proposta:** `equipment-v0.1`  
+**Versão da proposta:** `equipment-v0.2`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Definir uma estrutura universal para qualquer item equipável. Todo equipamento utiliza os mesmos campos de modificadores, ainda que a maioria esteja em `0`.
+Definir uma estrutura universal para qualquer item equipável. Todo equipamento utiliza os mesmos campos de modificadores, ainda que a maioria permaneça em `0`.
 
-O GPT propõe itens coerentes. O backend recalcula orçamento, valida slots, preços, peso e modificadores antes de persistir.
+O GPT propõe itens coerentes. O backend recalcula orçamento, valida slots, peso, modificadores e preços-base antes de persistir.
+
+O preço efetivo de uma loja, a negociação e a transferência de dinheiro são definidos em [`06-sistema-de-economia-e-comercio.md`](06-sistema-de-economia-e-comercio.md).
 
 ## 2. Princípios
 
@@ -17,10 +19,11 @@ O GPT propõe itens coerentes. O backend recalcula orçamento, valida slots, pre
 4. Nível e qualidade determinam o orçamento de poder.
 5. Penalidades negativas recuperam pontos para distribuição positiva.
 6. O custo líquido não pode ultrapassar o orçamento máximo.
-7. Todo item possui preço de compra e venda.
-8. A qualidade aumenta o preço, mas não altera automaticamente o peso.
-9. O peso depende de material, tamanho, estrutura e efeitos explícitos.
+7. Todo item possui preço-base de compra, preço-base de venda e código de moeda.
+8. Qualidade influencia poder e preço, mas não altera automaticamente o peso.
+9. Peso depende de material, tamanho, estrutura e efeitos explícitos.
 10. Equipamentos de duas mãos ocupam os dois slots de mão.
+11. Preços-base pertencem à definição do item; preços finais pertencem à sessão comercial.
 
 ## 3. Slots
 
@@ -117,7 +120,7 @@ Reservado para evolução futura. Um item `VERSATILE` poderá possuir perfis dif
 
 ## 5. Qualidade
 
-Ordem de poder adotada nesta versão:
+Ordem de poder:
 
 ```text
 INFERIOR
@@ -135,7 +138,9 @@ Em português:
 - Épico;
 - Lendário.
 
-A qualidade representa fabricação, conservação, pureza, refinamento, encantamento ou técnica especial.
+A qualidade representa fabricação, conservação original, pureza, refinamento, encantamento ou técnica especial.
+
+A condição atual do item é separada da qualidade e pertence às regras econômicas, de conservação e reparo.
 
 ## 6. Orçamento-base por nível
 
@@ -183,7 +188,7 @@ No nível 1:
 
 ## 8. Multiplicador de slot
 
-A importância do slot pode ajustar o orçamento.
+A importância do slot ajusta o orçamento.
 
 | Slot ou categoria | Multiplicador proposto |
 |---|---:|
@@ -214,7 +219,7 @@ máximo(
 )
 ```
 
-Os multiplicadores de slot ainda precisam de simulações. Uma arma de duas mãos deve compensar a perda da mão secundária sem equivaler automaticamente a dois itens completos.
+Os multiplicadores ainda precisam de simulações. Uma arma de duas mãos deve compensar a perda da mão secundária sem equivaler automaticamente a dois itens completos.
 
 ## 9. Custos de distribuição
 
@@ -267,7 +272,7 @@ O item é válido quando:
 Custo Líquido ≤ Pontos Máximos
 ```
 
-### Exemplo solicitado
+### 10.1 Exemplo
 
 ```text
 Orçamento-base: 7
@@ -284,7 +289,7 @@ O jogador pode priorizar defesa em troca de mobilidade.
 
 Para modificadores com custo especial, a penalidade recupera o mesmo custo. Exemplo: `Destreza -1` recupera os mesmos `5` pontos que `Destreza +1` consumiria.
 
-### 10.1 Coerência
+### 10.2 Coerência
 
 Penalidades devem ser mecanicamente coerentes com o item:
 
@@ -384,25 +389,34 @@ Adaga de ferro rara: 0,8 kg
 
 O peso só muda por razão concreta, como outro material, tamanho, reforço, estrutura oca ou encantamento de redução de peso.
 
-## 14. Preço
+## 14. Preços-base
 
-Todo item possui obrigatoriamente:
+Todo item comercializável deve possuir:
 
 ```text
-buyPrice
-sellPrice
+currencyCode
+baseBuyPrice
+baseSellPrice
 ```
 
-### 14.1 Compra
+Código monetário atual:
 
 ```text
-Preço de Compra =
+CROWN
+```
+
+### 14.1 Preço-base de compra
+
+Representa o valor normal do item novo ou em condição padrão, em mercado estável.
+
+```text
+Preço-base de compra =
 preço-base da categoria
 × fator de nível
 × multiplicador de preço da qualidade
 × multiplicador de material
 × multiplicador de fabricação
-× multiplicador de mercado
+× fator de poder utilizado
 ```
 
 Fator de nível proposto:
@@ -421,16 +435,46 @@ Multiplicadores de preço propostos:
 | Épico | `4,00` |
 | Lendário | `8,00` |
 
-O preço cresce mais rápido que o poder porque também representa escassez e dificuldade de fabricação.
-
-### 14.2 Venda
-
 ```text
-sellPrice =
-arredondar_para_baixo(buyPrice × 0,40)
+fatorPoder = 0,75 + ((pontosUtilizados ÷ pontosMáximos) × 0,25)
 ```
 
-O valor final de uma transação pode ser alterado por conservação, reputação, negociação, mercado e relação com o comerciante.
+### 14.2 Preço-base de venda
+
+Proposta inicial:
+
+```text
+baseSellPrice =
+arredondar_para_baixo(baseBuyPrice × 0,40)
+```
+
+Esse é apenas um valor canônico de referência. O preço final de recompra pode variar conforme comerciante, categoria, condição, interesse e negociação.
+
+### 14.3 Separação de responsabilidades
+
+O equipamento define:
+
+- categoria;
+- nível;
+- qualidade;
+- material;
+- fabricação;
+- pontos máximos e utilizados;
+- `baseBuyPrice`;
+- `baseSellPrice`;
+- `currencyCode`.
+
+O sistema de economia define:
+
+- condição atual;
+- escassez e demanda;
+- margem do comerciante;
+- especialidade;
+- faixas autorizadas;
+- negociação;
+- `referencePrice`;
+- `transactionPrice`;
+- transferência de itens e Coroas.
 
 ## 15. Exemplo completo resumido
 
@@ -442,6 +486,7 @@ O valor final de uma transação pode ser alterado por conservação, reputaçã
   "weaponType": "DAGGER",
   "level": 1,
   "quality": "COMMON",
+  "materialCode": "IRON",
   "allowedSlots": ["MAIN_HAND", "OFF_HAND"],
   "handedness": "ONE_HANDED",
   "occupiedSlots": 1,
@@ -485,10 +530,20 @@ O valor final de uma transação pode ser alterado por conservação, reputaçã
     "maximumPoints": 5,
     "positiveCost": 5,
     "negativeRefund": 0,
-    "netCost": 5
+    "netCost": 5,
+    "usedPoints": 5
   },
-  "buyPrice": 40,
-  "sellPrice": 16,
+  "pricing": {
+    "currencyCode": "CROWN",
+    "baseCategoryPrice": 40,
+    "levelMultiplier": 1.0,
+    "qualityMultiplier": 1.0,
+    "materialMultiplier": 1.0,
+    "craftsmanshipMultiplier": 1.0,
+    "powerUsageMultiplier": 1.0,
+    "baseBuyPrice": 40,
+    "baseSellPrice": 16
+  },
   "effects": [],
   "tags": ["LIGHT_WEAPON", "FINESSE", "DUAL_WIELD_ALLOWED"]
 }
@@ -496,7 +551,7 @@ O valor final de uma transação pode ser alterado por conservação, reputaçã
 
 ## 16. Validações do backend
 
-O backend deve validar:
+O backend de equipamentos deve validar:
 
 - estrutura completa;
 - nível e qualidade;
@@ -505,9 +560,13 @@ O backend deve validar:
 - orçamento positivo, negativo e líquido;
 - coerência de categoria;
 - peso;
-- compra e venda;
+- material e fabricação;
+- formação dos preços-base;
+- código monetário;
 - incompatibilidades de mãos;
 - limites dos atributos;
 - versão das regras utilizada.
+
+O backend comercial valida condição, mercado, oferta, negociação, saldo, estoque e preço final.
 
 Erros devem informar valor esperado, valor recebido e ações de recuperação.

@@ -54,6 +54,19 @@ GPT monta pacote completo
 → materializa temporariamente ou persiste atomicamente
 ```
 
+### Treinamento e progressão
+
+```text
+jogador declara treino ou executa ação
+→ backend aplica tempo, custos e consequências
+→ gera eventos de aprendizagem
+→ evolui domínio, perícias, atributos e nível
+→ widget atualiza barras
+→ GPT narra somente marcos importantes
+```
+
+Toda ação mecanicamente executada pode ensinar, inclusive prática livre, alvo estático, boneco, sparring ou combate real. O contexto altera a XP, mas repetição válida não recebe zero apenas por ser repetição.
+
 ## Mapa e combate
 
 ```text
@@ -70,6 +83,38 @@ mapa de exploração
 ```
 
 O motor utiliza tempo contínuo em ticks; o widget apresenta decisões semelhantes a turnos.
+
+## Progressão por uso
+
+```text
+uso válido
+→ custos reais
+→ XP de domínio
+→ XP de perícia ou proficiência
+→ treinamento de atributos
+→ experiência geral de desenvolvimento
+```
+
+O nível geral libera capacidade de crescimento. O uso decide quais atributos, habilidades, magias, perícias e profissões realmente evoluem.
+
+Treinamento não exige combate. Exemplos válidos:
+
+- lançar magia até consumir a Mana;
+- praticar contra árvore, alvo ou boneco;
+- sparring;
+- corrida, natação ou condicionamento;
+- estudo, meditação ou fabricação;
+- treino criativo interpretado pelo GPT.
+
+## Vigor, Cansaço e sono
+
+```text
+Vigor   → esforço curto
+Cansaço → desgaste acumulado
+Sono    → recuperação prolongada e pressão de vigília
+```
+
+Tempo, Mana, Vigor, Vida, Cansaço, ferimentos e risco são os limites naturais do treinamento. O backend não impede uma escolha perigosa; aplica suas consequências.
 
 ## Regras canônicas importantes
 
@@ -124,6 +169,8 @@ Toda mutação crítica usa idempotência, `stateVersion`, versões de regras e 
 - [`docs/09-sistema-de-fabricacao-e-qualidade.md`](docs/09-sistema-de-fabricacao-e-qualidade.md)
 - [`docs/10-sistema-de-atores-definicoes-e-instancias.md`](docs/10-sistema-de-atores-definicoes-e-instancias.md)
 - [`docs/11-sistema-de-inventario-itens-drops-e-saque.md`](docs/11-sistema-de-inventario-itens-drops-e-saque.md)
+- [`docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md`](docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md): progressão por uso, treino livre, domínio, níveis e atributos.
+- [`docs/20-vigor-cansaco-sono-e-recuperacao.md`](docs/20-vigor-cansaco-sono-e-recuperacao.md): esforço imediato, desgaste prolongado, vigília, sono e recuperação.
 
 ### Arquitetura e integração
 
@@ -160,20 +207,24 @@ app-architecture-v0.1
 widget-gameplay-v0.1
 security-v0.1
 implementation-roadmap-v0.1
+progression-v0.1
+fatigue-v0.1
 integration-v1.0
 ```
 
 ## Próximos sistemas de regra
 
 1. Condições e Efeitos.
-2. Progressão, Níveis e Experiência.
-3. Encontros, Objetivos e Transições.
-4. Relações, Vínculos e Companheiros.
-5. Missões e Recompensas.
-6. Tempo, Descanso e Recuperação.
-7. Mundo, Locais e Exploração.
-8. Morte, Incapacidade e Consequências.
-9. Facções, Reputação e Crimes.
+2. Encontros, Objetivos e Transições.
+3. Relações, Vínculos e Companheiros.
+4. Missões e Recompensas.
+5. Mundo, Locais, Rotas e Exploração.
+6. Morte, Incapacidade e Consequências.
+7. Facções, Reputação, Crimes e Testemunhas.
+8. Espécies, Origens e Arquétipos.
+9. Comportamentos de NPCs.
+10. Criação Inicial e Início de Campanha.
+11. Comida, Água e Sobrevivência detalhada.
 
 ## Diretriz para o Codex
 
@@ -197,4 +248,6 @@ Seguir:
 - widget sem regra autoritativa duplicada;
 - GPT não inventa recursos mecânicos ausentes;
 - informações do Mestre não aparecem no widget;
+- ações executadas podem gerar aprendizagem mesmo fora de combate;
+- custos, tempo, Cansaço e consequências nunca são ignorados em treino;
 - toda mudança de regra atualiza a versão correspondente.

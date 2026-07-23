@@ -1,39 +1,56 @@
 # Sistema de Atributos
 
-**Versão da proposta:** `attributes-v0.3`  
+**Versão da proposta:** `attributes-v0.4`  
 **Status:** em validação  
 **Escopo:** personagens, NPCs, criaturas e animais
 
 ## 1. Objetivo
 
-Definir uma estrutura única de atributos que possa ser carregada pelo GPT, modificada por equipamentos, habilidades e condições, validada pelo backend e futuramente exibida no frontend.
+Definir uma estrutura simples e universal de atributos para o GPT utilizar em combate, exploração e outras resoluções.
 
-Este documento define os valores da ficha. Comparações, rolagens, tempo, movimento e resolução pertencem aos sistemas de combate e ações.
+A ficha possui poucos atributos primários. Especializações específicas pertencem a atributos secundários, perícias, proficiências, profissões, habilidades, passivas, equipamentos e condições.
 
 ## 2. Atributos primários
 
+```text
+Força
+Agilidade
+Destreza
+Vitalidade
+Inteligência
+```
+
 | Nome | Código | Função principal |
 |---|---|---|
-| Força | `strength` | poder físico, carga, vigor e resistência estrutural |
-| Destreza | `dexterity` | precisão física, esquiva, iniciativa, velocidade física, crítico e furtividade |
-| Inteligência | `intelligence` | poder mágico, mana, precisão mágica, velocidade de conjuração e resistência mental |
-| Vitalidade | `vitality` | vida, vigor e capacidade de suportar dano e condições físicas |
+| Força | `strength` | impacto físico, carga, Vigor e uso de equipamentos pesados |
+| Agilidade | `agility` | mobilidade, Esquiva, Iniciativa e velocidade física |
+| Destreza | `dexterity` | precisão, controle, ataques localizados e conjuração técnica |
+| Vitalidade | `vitality` | Vida, Vigor, defesa e resistência corporal |
+| Inteligência | `intelligence` | poder mágico, Mana, conhecimento e resistência mental |
 
-### 2.1 Criação inicial
+### 2.1 Separação essencial
+
+```text
+Agilidade = rapidez e mobilidade
+Destreza = precisão e controle
+```
+
+Essa separação impede que um único atributo conceda simultaneamente alta Precisão, Esquiva, movimento, frequência de ações, crítico e Furtividade.
+
+## 3. Criação e progressão
 
 Proposta atual:
 
 ```text
 Força: 5
+Agilidade: 5
 Destreza: 5
-Inteligência: 5
 Vitalidade: 5
+Inteligência: 5
 Pontos livres na criação: 16
 ```
 
-O valor mínimo normal na criação é `5`. Reduções abaixo disso somente podem existir por raça, condição, maldição ou regra explícita.
-
-### 2.2 Progressão
+O valor mínimo normal na criação é `5`. Valores menores exigem raça, condição, maldição ou regra explícita.
 
 A cada nível adquirido:
 
@@ -41,19 +58,17 @@ A cada nível adquirido:
 +10 pontos de atributos primários
 ```
 
-Os pontos podem permanecer sem distribuição e devem ser persistidos em:
+Pontos não distribuídos são persistidos em:
 
 ```text
 unspentPrimaryPoints
 ```
 
-O backend distribui os pontos apenas mediante operação válida. A subida de nível não precisa preencher os atributos automaticamente.
+Personagens de jogador seguem o orçamento de progressão. NPCs e criaturas usam a mesma estrutura, mas podem receber valores por arquétipo ou nível de desafio.
 
-Personagens de jogador seguem esse orçamento. NPCs e criaturas utilizam a mesma estrutura, mas podem receber atributos por arquétipo ou nível de desafio.
+## 4. Atributos secundários canônicos
 
-## 3. Atributos secundários canônicos
-
-### 3.1 Recursos
+### 4.1 Recursos
 
 | Nome | Código |
 |---|---|
@@ -61,13 +76,15 @@ Personagens de jogador seguem esse orçamento. NPCs e criaturas utilizam a mesma
 | Mana Máxima | `maxMana` |
 | Vigor Máximo | `maxStamina` |
 
-Valores atuais persistidos separadamente:
+Valores atuais:
 
-- `currentHealth`;
-- `currentMana`;
-- `currentStamina`.
+```text
+currentHealth
+currentMana
+currentStamina
+```
 
-### 3.2 Ofensivos
+### 4.2 Ofensivos
 
 | Nome | Código |
 |---|---|
@@ -78,7 +95,7 @@ Valores atuais persistidos separadamente:
 | Chance de Crítico | `criticalChance` |
 | Dano Crítico | `criticalDamage` |
 
-### 3.3 Defensivos
+### 4.3 Defensivos
 
 | Nome | Código |
 |---|---|
@@ -89,29 +106,25 @@ Valores atuais persistidos separadamente:
 | Resistência Física | `physicalResistance` |
 | Resistência Mental | `mentalResistance` |
 
-A Esquiva é um **rating de oposição**, não uma porcentagem pronta e não gera uma rolagem separada.
+Esquiva é um rating de oposição usado na chance única de acerto. Não gera uma segunda rolagem.
 
-A Defesa Crítica é uma base ou modificador para a chance de anulação completa de um ataque que já acertou.
+### 4.4 Tempo, movimento e utilidade
 
-### 3.4 Tempo, movimento e utilidade
-
-| Nome | Código | Unidade ou função |
+| Nome | Código | Função |
 |---|---|---|
 | Iniciativa | `initiative` | disponibilidade inicial e desempates |
 | Velocidade de Movimento | `movementSpeed` | metros por segundo |
-| Velocidade de Ação Física | `physicalActionSpeed` | rating de redução temporal |
-| Velocidade de Conjuração | `castingSpeed` | rating de redução temporal |
+| Velocidade de Ação Física | `physicalActionSpeed` | redução temporal de ações físicas |
+| Velocidade de Conjuração | `castingSpeed` | redução temporal de conjuração |
 | Capacidade de Carga | `carryCapacity` | peso sem penalidade |
-| Percepção | `perception` | detecção e leitura do ambiente |
+| Percepção | `perception` | detecção e análise |
 | Furtividade | `stealth` | ocultação e movimentação discreta |
 
-O antigo atributo genérico `speed` deixa de ser utilizado. Movimento, ações físicas e conjuração possuem escalas separadas.
+## 5. Fórmulas-base propostas
 
-## 4. Fórmulas-base propostas
+As fórmulas são provisórias e devem ser simuladas nos níveis 1, 5, 10, 20 e 50.
 
-As fórmulas abaixo devem ser versionadas e ainda precisam de simulações em diferentes níveis.
-
-### 4.1 Recursos
+### 5.1 Recursos
 
 ```text
 Vida Máxima =
@@ -129,11 +142,11 @@ Vigor Máximo =
 + (nível × 2)
 + (Vitalidade × 2)
 + Força
-+ arredondar_para_baixo(Destreza ÷ 2)
++ arredondar_para_baixo(Agilidade ÷ 2)
 + modificadores diretos
 ```
 
-### 4.2 Poder ofensivo
+### 5.2 Poder ofensivo
 
 ```text
 ATK Físico Base = Força × 2
@@ -143,9 +156,9 @@ ATK Físico Base = Força × 2
 ATK Mágico Base = Inteligência × 2
 ```
 
-Ações, armas e habilidades podem declarar escalas adicionais. Uma arma de finesse poderá aproveitar Destreza sem mudar a fórmula universal da ficha.
+Armas e ações podem declarar escalas próprias. Armas de finesse e à distância podem usar Destreza na escala de dano sem mudar o ATK Físico universal.
 
-### 4.3 Precisões e Esquiva
+### 5.3 Precisão e Esquiva
 
 ```text
 Precisão Física Base =
@@ -154,17 +167,17 @@ nível + arredondar_para_baixo(Destreza ÷ 2)
 
 ```text
 Precisão Mágica Base =
-nível + arredondar_para_baixo(Inteligência ÷ 2)
+nível
++ arredondar_para_baixo(Destreza ÷ 3)
++ arredondar_para_baixo(Inteligência ÷ 4)
 ```
 
 ```text
 Esquiva Base =
-nível + arredondar_para_baixo(Destreza ÷ 2)
+nível + arredondar_para_baixo(Agilidade ÷ 2)
 ```
 
-Precisão e Esquiva crescem na mesma escala para evitar que todos os ataques cheguem automaticamente ao teto em níveis altos.
-
-### 4.4 Defesas
+### 5.4 Defesas
 
 ```text
 DEF Física Base =
@@ -177,23 +190,26 @@ Vitalidade + arredondar_para_baixo(Inteligência ÷ 2)
 ```
 
 ```text
-Defesa Crítica Base = 0
+Defesa Crítica Base =
+arredondar_para_baixo(Vitalidade ÷ 25)
 ```
 
-Defesa Crítica é aumentada principalmente por equipamentos, posturas, barreiras, talentos e efeitos.
+Equipamentos, escudos, posturas, barreiras, talentos e passivas são as principais fontes adicionais de Defesa Crítica.
 
-### 4.5 Crítico
+### 5.5 Crítico
 
 ```text
 Chance de Crítico Base =
-5 + arredondar_para_baixo(Destreza ÷ 10)
+5 + arredondar_para_baixo(Destreza ÷ 20)
 ```
 
 ```text
 Dano Crítico Base = 150%
 ```
 
-### 4.6 Resistências
+O principal aumento de crítico deve vir de ações, equipamentos, perícias e passivas especializadas.
+
+### 5.6 Resistências
 
 ```text
 Resistência Física Base =
@@ -205,54 +221,34 @@ Resistência Mental Base =
 Inteligência + arredondar_para_baixo(Vitalidade ÷ 2)
 ```
 
-As resistências são usadas contra condições e efeitos. Elas não substituem DEF Física ou DEF Mágica na mitigação de dano.
-
-### 4.7 Tempo e movimento
-
-#### Iniciativa
+### 5.7 Tempo e movimento
 
 ```text
-Iniciativa Base = Destreza
+Iniciativa Base = Agilidade
 ```
-
-A Iniciativa determina principalmente a disponibilidade inicial. Depois do início do encontro, os custos temporais das ações e os valores `nextReadyAt` controlam a ordem.
-
-#### Velocidade de Movimento
 
 ```text
 Velocidade de Movimento Base =
-4 + arredondar_para_baixo(Destreza ÷ 25)
+4 + arredondar_para_baixo(Agilidade ÷ 25)
 ```
 
-Unidade:
-
-```text
-metros por segundo
-```
-
-A carga, o terreno e os equipamentos podem modificar o valor final.
-
-#### Velocidade de Ação Física
+Unidade: metros por segundo.
 
 ```text
 Velocidade de Ação Física Base =
-arredondar_para_baixo(Destreza ÷ 5)
+arredondar_para_baixo(Agilidade ÷ 5)
++ arredondar_para_baixo(Destreza ÷ 10)
 ```
-
-É um rating usado para reduzir o tempo de ataques físicos, preparação de armas, técnicas corporais, consumíveis e outras ações físicas compatíveis.
-
-#### Velocidade de Conjuração
 
 ```text
 Velocidade de Conjuração Base =
-arredondar_para_baixo(Inteligência ÷ 5)
+arredondar_para_baixo(Destreza ÷ 5)
++ arredondar_para_baixo(Inteligência ÷ 10)
 ```
 
-É um rating usado para reduzir preparação e recuperação de magias compatíveis.
+Agilidade faz o ator agir rapidamente. Destreza melhora a execução técnica. Inteligência contribui para domínio e fluidez de magias.
 
-A fórmula de redução temporal e os tempos mínimos pertencem ao sistema de ações.
-
-### 4.8 Utilidade
+### 5.8 Utilidade
 
 ```text
 Capacidade de Carga Base =
@@ -265,35 +261,33 @@ arredondar_para_baixo((Destreza + Inteligência) ÷ 2)
 ```
 
 ```text
-Furtividade Base = Destreza
+Furtividade Base =
+arredondar_para_baixo((Agilidade + Destreza) ÷ 2)
 ```
 
-## 5. Composição dos valores
-
-### 5.1 Primários
+## 6. Composição
 
 ```text
 Atributo Primário Final =
 base
 + pontos distribuídos
 + bônus permanentes
-+ bônus de equipamentos
++ equipamentos
 + modificadores temporários
 ```
-
-### 5.2 Secundários
 
 ```text
 Atributo Secundário Final =
 valor derivado dos primários finais
-+ modificadores permanentes diretos
-+ modificadores de equipamentos
++ bônus permanentes diretos
++ equipamentos
++ perícias ou passivas aplicáveis
 + modificadores temporários
 ```
 
-Um bônus em atributo primário recalcula todos os secundários dependentes. Um bônus direto em secundário altera somente aquele valor.
+Um bônus primário recalcula todos os secundários dependentes. Um bônus direto altera somente o secundário indicado.
 
-## 6. Limites finais
+## 7. Limites finais
 
 | Estatística | Limite |
 |---|---|
@@ -306,83 +300,71 @@ Um bônus em atributo primário recalcula todos os secundários dependentes. Um 
 | Chance de Crítico | `0%` a `95%` |
 | Dano Crítico | mínimo `100%` |
 
-Modificadores individuais podem ser negativos, mas o resultado final respeita os limites da estatística.
+Modificadores individuais podem ser negativos, mas o resultado final respeita os limites.
 
-## 7. Alteração de recursos máximos
+## 8. Alteração de recursos máximos
 
 Ao aumentar um máximo, o valor atual não é preenchido automaticamente:
 
 ```text
-50/100 de Vida → máximo aumenta para 120 → 50/120
+50/100 de Vida → máximo 120 → 50/120
 ```
 
-Ao reduzir um máximo:
+Ao reduzir:
 
 ```text
 novoAtual = mínimo(atualAnterior, novoMáximo)
 ```
 
-## 8. Estrutura canônica resumida
+## 9. Estrutura canônica resumida
 
-O exemplo abaixo usa todos os pontos previstos para um personagem nível 5:
+Personagem de nível 5:
 
 ```text
-20 pontos-base
+25 pontos-base
 + 16 pontos livres da criação
-+ 40 pontos das quatro subidas de nível
-= 76 pontos primários totais
++ 40 pontos das quatro subidas
+= 81 pontos primários totais
 ```
 
 ```json
 {
-  "ruleVersion": "attributes-v0.3",
+  "ruleVersion": "attributes-v0.4",
   "level": 5,
   "unspentPrimaryPoints": 0,
   "primaryAttributes": {
-    "strength": { "base": 5, "allocated": 20, "permanent": 0, "equipment": 0, "temporary": 0, "total": 25 },
-    "dexterity": { "base": 5, "allocated": 10, "permanent": 0, "equipment": 0, "temporary": 0, "total": 15 },
-    "intelligence": { "base": 5, "allocated": 5, "permanent": 0, "equipment": 0, "temporary": 0, "total": 10 },
-    "vitality": { "base": 5, "allocated": 21, "permanent": 0, "equipment": 0, "temporary": 0, "total": 26 }
-  },
-  "resources": {
-    "health": { "current": 200, "maximum": 200 },
-    "mana": { "current": 60, "maximum": 60 },
-    "stamina": { "current": 104, "maximum": 104 }
+    "strength": { "base": 5, "allocated": 15, "total": 20 },
+    "agility": { "base": 5, "allocated": 10, "total": 15 },
+    "dexterity": { "base": 5, "allocated": 8, "total": 13 },
+    "vitality": { "base": 5, "allocated": 18, "total": 23 },
+    "intelligence": { "base": 5, "allocated": 0, "total": 5 }
   },
   "secondaryAttributes": {
-    "physicalAttack": 50,
-    "magicalAttack": 20,
-    "physicalAccuracy": 12,
+    "physicalAttack": 40,
+    "magicalAttack": 10,
+    "physicalAccuracy": 11,
     "magicalAccuracy": 10,
-    "physicalDefense": 38,
-    "magicalDefense": 31,
+    "physicalDefense": 33,
+    "magicalDefense": 25,
     "evasion": 12,
-    "criticalChance": 6,
+    "criticalChance": 5,
     "criticalDamage": 150,
     "criticalDefense": 0,
-    "physicalResistance": 38,
-    "mentalResistance": 23,
+    "physicalResistance": 33,
+    "mentalResistance": 16,
     "initiative": 15,
     "movementSpeed": 4,
-    "physicalActionSpeed": 3,
-    "castingSpeed": 2,
-    "carryCapacity": 135,
-    "perception": 12,
-    "stealth": 15
+    "physicalActionSpeed": 4,
+    "castingSpeed": 3,
+    "carryCapacity": 110,
+    "perception": 9,
+    "stealth": 14
   }
 }
 ```
 
-## 9. Responsabilidades
+## 10. Responsabilidades
 
-O backend deve persistir os primários, recursos atuais, pontos não distribuídos e versões de regra; recalcular os secundários; validar limites; e retornar a composição dos valores.
+O backend persiste primários, pontos não distribuídos e recursos; recalcula secundários; aplica equipamentos, perícias e passivas; valida limites e retorna composição.
 
-O GPT deve carregar a ficha antes de resolver ações, utilizar os valores finais retornados, não inventar atributos e registrar qualquer alteração mecânica na resolução enviada ao backend.
-
-## 10. Pendências
-
-- calibrar as três fórmulas de velocidade nos níveis 1, 5, 10, 20 e 50;
-- validar efeitos de carga e armadura sobre movimento;
-- validar retorno decrescente de velocidade sobre tempos de ação;
-- confirmar limites de investimento em primários;
-- confirmar fórmulas definitivas de ATK, Vida, Mana e Vigor.
+O GPT utiliza os valores finais carregados, não inventa atributos e registra qualquer alteração mecânica na resolução enviada ao backend.

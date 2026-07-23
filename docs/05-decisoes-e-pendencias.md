@@ -43,6 +43,16 @@ jogador escreve → GPT interpreta → backend resolve → GPT narra
 backend retorna narrationDirective → widget atualiza → GPT narra ou pede decisão
 ```
 
+### Treinamento
+
+```text
+jogador declara treino
+→ GPT ou widget estrutura atividade
+→ backend resolve tempo, custos e repetições
+→ concede progressão oficial
+→ widget atualiza
+```
+
 ## 3. Ferramentas MCP
 
 Catálogo inicial:
@@ -75,7 +85,8 @@ cancelSession
 - não criar ferramenta genérica arbitrária;
 - ferramentas de leitura, prévia e escrita são separadas;
 - widget pode chamar ferramentas autorizadas diretamente;
-- o antigo limite de 30 Actions não é regra canônica da arquitetura MCP.
+- o antigo limite de 30 Actions não é regra canônica da arquitetura MCP;
+- treino em lote reutiliza `resolveGameCommand`, `resolveCreativeIntent` e `advanceWorldTime`.
 
 ## 4. Estado e segurança
 
@@ -123,6 +134,9 @@ TRADE
 CRAFTING
 MISSION_LOG
 RELATIONSHIP_VIEW
+TRAINING
+PROGRESSION
+REST
 ```
 
 Decisões:
@@ -136,7 +150,9 @@ Decisões:
 - backend pode interromper o plano;
 - loot é clicável e reflete estado real;
 - GPT não narra cada ataque comum;
-- widget deve ser remontável a partir do backend.
+- widget deve ser remontável a partir do backend;
+- widget mostra prévias de treino, custo, duração e Cansaço;
+- widget nunca concede XP ou recupera recursos por conta própria.
 
 ## 8. Atributos
 
@@ -150,19 +166,139 @@ Inteligência
 
 - Agilidade = rapidez e mobilidade;
 - Destreza = precisão e controle;
-- cada nível concede 10 pontos primários, ainda sujeito a calibração;
+- cada nível concede `10` pontos de capacidade de crescimento primário, ainda sujeito a calibração;
+- uso e treinamento determinam quais atributos consomem essa capacidade;
+- atributos acumulam XP de treinamento próprio;
+- pontos não utilizados e XP pendente podem ser persistidos;
 - especializações usam perícias, proficiências, profissões e passivas.
 
-## 9. Atores
+## 9. Progressão por uso
+
+Decisões canônicas:
+
+- toda ação mecanicamente executada pode gerar aprendizagem;
+- treino não exige combate;
+- prática livre, alvo estático, boneco, sparring, estudo e meditação são válidos;
+- repetição válida não recebe `0 XP` somente por ser repetição;
+- contexto, dificuldade, resultado, Cansaço e qualidade alteram a quantidade;
+- ação que falhou pode conceder XP de tentativa e execução;
+- comando rejeitado antes da execução não concede XP;
+- ações interrompidas podem conceder XP parcial;
+- progressão oficial nasce de eventos mecânicos confirmados;
+- backend calcula e persiste tudo de forma idempotente.
+
+Camadas:
+
+```text
+nível geral
+atributos
+perícias
+proficiências
+domínio de habilidades e magias
+profissões
+passivas e especializações
+```
+
+### Ataque e defesa
+
+- tentativa de ataque pode treinar ação, arma, perícia e atributos;
+- acerto e dano acrescentam XP de resultado;
+- receber dano treina resiliência, Vitalidade ou tolerância aplicável;
+- receber dano não treina Esquiva ou Bloqueio automaticamente;
+- Esquiva e Bloqueio exigem tentativa real correspondente.
+
+### Treino contra si mesmo
+
+- pode ocorrer quando a ação for fisicamente e mecanicamente válida;
+- Vida, Vigor, Cansaço, tempo, ferimentos e morte continuam reais;
+- o backend respeita condições de parada declaradas;
+- não existe proteção narrativa automática contra a consequência escolhida.
+
+## 10. Nível geral
+
+- nível não depende somente de matar inimigos;
+- uso, objetivos, treino, missões, descobertas, produção e marcos podem gerar XP geral;
+- nível libera capacidade de crescimento primário;
+- domínio de técnicas e perícias possui progressão própria;
+- NPC materializado deve respeitar orçamento e capacidade compatíveis com seu nível;
+- curvas finais ainda precisam de simulação.
+
+## 11. Habilidades e magias
+
+Cada ator possui domínio individual da definição conhecida.
+
+Uma definição pode declarar escalonamento por domínio em:
+
+```text
+dano
+cura
+precisão
+alcance
+área
+duração
+custo
+preparação
+recuperação
+penetração
+chance de condição
+número de alvos
+estabilidade
+```
+
+Nem toda habilidade melhora todos os campos.
+
+Crescimento pode combinar:
+
+- pequenos aumentos graduais;
+- marcos;
+- especializações;
+- novas opções.
+
+## 12. Vigor, Cansaço e sono
+
+Decisões:
+
+```text
+Vigor   → esforço imediato
+Cansaço → desgaste persistente de 0 a 100
+Sono    → pressão de vigília e recuperação prolongada
+```
+
+- Mana não elimina Cansaço de conjuração repetida;
+- ataques, corrida, natação, esquiva, bloqueio e magia podem gerar Cansaço;
+- Vigor recupera mais rápido que Cansaço;
+- Cansaço reduz máximo efetivo, regeneração e desempenho;
+- uma ação executada pode gerar XP mesmo cansada;
+- Cansaço crítico pode impedir a próxima execução por falha ou colapso;
+- descanso recupera Vigor, mas não substitui sono indefinidamente;
+- sono avança o tempo e recupera conforme duração e qualidade;
+- comida e água serão integradas depois.
+
+Faixas provisórias de vigília para balanceamento:
+
+```text
+0–16h  normal
+16–20h pressão leve
+20–24h pressão relevante
+24–36h severa
+36–48h crítica
+48h+   colapso altamente provável
+```
+
+Essas faixas são regra de jogo, não orientação médica.
+
+## 13. Atores
 
 - modelo universal para pessoas, animais, monstros, criaturas, espíritos, construtos, invocações e jogadores;
 - natureza, espécie, arquétipo, papel, facção e controle são separados;
 - materialização ocorre quando a entidade se torna relevante;
 - ficha materializada define recursos, ações, inventário e loot;
 - companheiro é vínculo, não espécie;
-- atores anônimos podem ser temporários e promovidos.
+- atores anônimos podem ser temporários e promovidos;
+- atores persistentes podem acumular progressão;
+- inimigos descartáveis não precisam persistir ganhos após a sessão.
 
-## 10. Itens, qualidade e inventário
+## 14. Itens, qualidade e inventário
 
 ```text
 Definição Comum de referência
@@ -178,7 +314,7 @@ Definição Comum de referência
 - drops naturais e itens carregados são separados;
 - reservas impedem uso concorrente.
 
-## 11. Combate
+## 15. Combate
 
 - posições e alcance em metros;
 - linha do tempo contínua em ticks;
@@ -188,9 +324,11 @@ Definição Comum de referência
 - ações podem ser interrompidas;
 - backend resolve oficial e retorna eventos;
 - widget anima até a próxima decisão;
-- ações criativas continuam pelo GPT.
+- ações criativas continuam pelo GPT;
+- cada evento pode produzir progressão;
+- inimigos fortes podem aumentar XP por dificuldade sem deixar de aplicar o risco normal.
 
-## 12. Economia e fabricação
+## 16. Economia e fabricação
 
 - moeda `CROWN`;
 - definição guarda preço Comum;
@@ -198,21 +336,40 @@ Definição Comum de referência
 - backend controla saldo, estoque e transação;
 - fabricação referencia definição existente;
 - sucesso cria instância, não definição por qualidade;
-- qualidade, consumo e XP são autoritativos.
+- qualidade, consumo e XP são autoritativos;
+- prática profissional pode evoluir perícia, profissão, receita e atributos aplicáveis.
 
-## 13. Pendências bloqueadoras próximas
+## 17. Pendências bloqueadoras próximas
 
 1. Sistema de Condições e Efeitos.
-2. Progressão, XP e níveis.
-3. Encontros, objetivos e transições completas.
-4. Relações, companheiros, romance e domesticação.
-5. Missões e recompensas.
-6. Tempo, descanso e recuperação detalhados.
-7. Mundo, locais e exploração.
-8. Morte, incapacidade e consequências.
-9. Facções, reputação e crimes.
+2. Encontros, objetivos e transições completas.
+3. Relações, companheiros, romance e domesticação.
+4. Missões e recompensas.
+5. Mundo, locais, rotas e exploração.
+6. Morte, incapacidade e consequências.
+7. Facções, reputação e crimes.
+8. Espécies, origens e arquétipos.
+9. Comportamentos de NPCs.
+10. Comida, água e sobrevivência detalhada.
 
-## 14. Pendências técnicas
+## 18. Pendências de progressão e desgaste
+
+- curvas de XP por trilha;
+- peso da XP geral produzida por uso;
+- custo de atributo por valor atual;
+- multiplicadores de contexto e dificuldade;
+- marcos de habilidades e magias;
+- custo de Vigor por ação;
+- regeneração de Vigor;
+- geração de Cansaço;
+- penalidades por estágio;
+- curva de sono;
+- recuperação por descanso;
+- treino com instrutor;
+- progressão de companheiros;
+- comportamento após morte, rollback ou recarga.
+
+## 19. Pendências técnicas
 
 - auditar backend atual;
 - definir migrations expand/contract;
@@ -226,9 +383,10 @@ Definição Comum de referência
 - testar remontagem de widget;
 - testar seleção de ferramenta pelo GPT;
 - testar chamadas diretas do widget;
+- implementar resolução de atividades longas em lote;
 - validar disponibilidade da plataforma por plano/workspace.
 
-## 15. Primeiro recorte vertical
+## 20. Primeiro recorte vertical
 
 ```text
 login
@@ -238,15 +396,18 @@ login
 → iniciar combate
 → mover
 → atacar
+→ gerar progressão por ação
 → resolver até próxima decisão
 → derrotar inimigo
 → abrir loot
 → transferir itens
 → narrar desfecho
+→ realizar treino simples
+→ descansar
 → retomar após recarregar
 ```
 
-## 16. Roadmap do Codex
+## 21. Roadmap do Codex
 
 A implementação deve seguir:
 

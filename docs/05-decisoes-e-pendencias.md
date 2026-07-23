@@ -10,18 +10,19 @@ Este arquivo separa regras aceitas de propostas ainda sujeitas a testes.
 - O GPT pode criar, corrigir, balancear e evoluir conteúdos por meio das Actions adequadas.
 - O backend calcula, valida, persiste e aplica consequências autoritativas.
 - Validação do backend não significa imutabilidade dos conteúdos.
-- Combate, comércio, perícias, fabricação e materialização de atores não exigem chamada a cada microação.
+- Combate, comércio, perícias, fabricação, inventário e materialização de atores não exigem chamada a cada microação.
 - O frontend futuro usa o mesmo domínio e as mesmas validações.
 
 ### Criação e revisão
 
 - Todo conteúdo pode ser revisado quando houver justificativa coerente.
 - Sugestões do jogador são avaliadas pelo GPT; não são aplicadas automaticamente.
-- O GPT deve consultar regras, identidade temática, orçamento e vínculos antes de propor uma alteração.
+- O GPT consulta regras, identidade temática, orçamento, propriedade e vínculos antes de propor alteração.
 - Revisões preferem manter ID e código, criar nova versão e preservar vínculos.
 - Toda revisão declara escopo para futuras instâncias, instância atual, instâncias selecionadas ou todas as compatíveis.
 - Eventos históricos não são recalculados automaticamente.
-- O backend deve retornar erros acionáveis, não apenas negar a operação.
+- O backend retorna erros acionáveis, não apenas nega a operação.
+- Uma revisão não altera silenciosamente snapshot em andamento sem migração ou evento explícito.
 
 ### Atributos
 
@@ -49,11 +50,28 @@ Inteligência
 - Antes de interação mecânica relevante, o ator é materializado com ficha completa.
 - A ficha materializada define atributos, recursos, ações, passivas, equipamentos, inventário, dinheiro e recompensas aplicáveis.
 - Dados materializados ficam congelados no snapshot da sessão.
-- O GPT não pode inventar retroativamente poções, magias, dinheiro, equipamentos ou drops.
+- O GPT não inventa retroativamente poções, magias, dinheiro, equipamentos ou drops.
 - Instâncias podem ser promovidas de encontro para campanha ou mundo sem duplicação.
 - Companheiro é papel e vínculo, não espécie ou natureza.
 - A ficha real e o conhecimento do jogador são estados separados.
 - Materialização usa semente determinística para permitir reprodução.
+
+### Inventário, itens, drops e saque
+
+- Definição de item e instância de item são conceitos diferentes.
+- Todo item persistente possui uma localização e uma propriedade autoritativas.
+- Itens podem estar em inventário, slot equipado, contêiner, estoque, solo, cadáver, coleta, reserva ou depósito.
+- Pilhas somente podem ser mescladas quando todos os dados relevantes forem compatíveis.
+- Peso é calculado pela quantidade e influencia a capacidade de carga.
+- Equipar, desequipar, consumir, transferir, saquear e destruir são operações atômicas.
+- Munições, consumíveis, cargas e durabilidade são recursos mecânicos persistidos.
+- Itens carregados por ator materializado existem antes da interação e refletem consumo ou destruição durante o encontro.
+- Drops naturais são separados de inventário carregado.
+- Resultados de drop são reproduzíveis por semente e não podem ser rerrolados ao recarregar a cena.
+- A forma da derrota só altera coleta quando uma condição de drop foi declarada previamente.
+- Qualidade, condição e durabilidade são conceitos diferentes.
+- Itens de fabricação e comércio podem ser reservados para impedir uso duplo.
+- O GPT pode criar ou revisar itens e regras de drop, mas não acrescenta retroativamente saque a uma sessão congelada sem causa válida.
 
 ### Combate
 
@@ -66,6 +84,7 @@ Inteligência
 - Ações possuem preparação, recuperação e tempo mínimo.
 - Movimento e ataque são separados, salvo ação composta.
 - Ações podem ser interrompidas.
+- Custos de munição, consumíveis e cargas usam instâncias ou pilhas reais do inventário.
 
 ### Equipamentos
 
@@ -78,6 +97,7 @@ Inteligência
 - Penalidades recuperam orçamento positivo.
 - Equipamentos podem conceder ações, passivas e proficiências válidas.
 - Qualidade não altera automaticamente o peso.
+- Equipamento persistente é uma instância localizada em inventário ou slot equipado.
 
 ### Economia
 
@@ -87,6 +107,8 @@ Inteligência
 - Passivas comerciais modificam transações, não preços-base.
 - O GPT negocia somente dentro das faixas fornecidas.
 - O backend controla saldo, estoque, propriedade e transferência atômica.
+- Estoque de comerciante utiliza as mesmas instâncias e pilhas do sistema de inventário.
+- Itens roubados, vinculados, danificados ou reservados podem ter restrições comerciais.
 
 ### Perícias, profissões e passivas
 
@@ -104,7 +126,9 @@ Inteligência
 - Receita, material, ferramenta, oficina e desbloqueios limitam a qualidade máxima.
 - Perícia melhora sucesso e qualidade sem ignorar o teto.
 - Consumo, criação, reparo, qualidade e XP são autoritativos no backend.
-- O GPT pode conduzir uma sessão de fabricação a partir de snapshot completo.
+- Materiais e ferramentas são reservados no inventário antes da resolução.
+- Falha, consumo, subproduto e item criado alteram o mesmo estado de inventário atomicamente.
+- O GPT pode conduzir sessão de fabricação a partir de snapshot completo.
 
 ## 2. Simulação anterior inválida
 
@@ -130,11 +154,26 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - definir critérios de promoção para campanha e mundo;
 - definir domesticação, recrutamento e controle de companheiros;
 - definir relações, impressões e memórias completas;
-- integrar inventário, loot e coleta;
 - definir migração de instâncias após revisão de definição;
 - ampliar validação temática por tags.
 
-## 5. Pendências de combate e ações
+## 5. Pendências de inventário, itens e saque
+
+- definir limites de pilha por categoria;
+- calibrar faixas e penalidades de sobrecarga;
+- definir política completa de condição e durabilidade;
+- definir compatibilidade de pilhas por condição e qualidade;
+- definir tempo de saque, busca e identificação;
+- definir recuperação de munições e projéteis;
+- definir expiração de cadáveres e pilhas de saque;
+- definir contêineres aninhados e capacidade;
+- definir acesso e divisão de saque em grupo;
+- definir itens quebrados, sucata e destruição;
+- definir políticas de itens roubados, únicos, vinculados e de missão;
+- validar drops naturais condicionais à forma de derrota;
+- testar reservas simultâneas de comércio e fabricação.
+
+## 6. Pendências de combate e ações
 
 - validar base de 75% da chance de acerto;
 - calibrar influência do nível;
@@ -143,9 +182,10 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - calibrar tempos de movimento, ataques e magias;
 - definir engajamento, reações, cobertura e projéteis;
 - testar arqueiro contra perseguidor, conjuração interrompida e múltiplos inimigos;
-- definir política auditável de aleatoriedade.
+- definir política auditável de aleatoriedade;
+- validar momentos de consumo `ON_START`, `ON_RESOLVE` e `ON_SUCCESS`.
 
-## 6. Pendências de equipamentos
+## 7. Pendências de equipamentos
 
 - validar multiplicadores de slot;
 - calibrar custos dos modificadores;
@@ -154,9 +194,10 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - validar materiais, conservação e reparos;
 - definir equipamentos versáteis;
 - validar preços-base junto à economia;
-- definir regras de coerência temática e revisão entre tags, nomes e efeitos.
+- definir coerência temática entre tags, nomes e efeitos;
+- definir efeitos de equipamento quebrado ou danificado.
 
-## 7. Pendências de economia
+## 8. Pendências de economia
 
 - validar cesta econômica inicial;
 - completar preços-base por categoria;
@@ -164,10 +205,10 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - validar margens, recompra e negociação;
 - integrar perícia Comércio e passivas comerciais;
 - definir mercados regionais, escassez e eventos;
-- definir itens roubados, vinculados e não comercializáveis;
+- integrar restrições de itens roubados, vinculados e não comercializáveis;
 - testar inflação em campanhas longas.
 
-## 8. Pendências de perícias e profissões
+## 9. Pendências de perícias e profissões
 
 - definir curva de XP das perícias;
 - definir nível máximo;
@@ -178,7 +219,7 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - definir retorno decrescente por repetição;
 - validar perícias sociais, de combate, coleta e produção.
 
-## 9. Pendências de fabricação
+## 10. Pendências de fabricação
 
 - fórmula definitiva de sucesso;
 - limiares de qualidade;
@@ -191,7 +232,7 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - fabricação em lote;
 - XP e prevenção de treinamento abusivo.
 
-## 10. Pendências de criação, revisão e versionamento
+## 11. Pendências de criação, revisão e versionamento
 
 - definir schemas universais de proposta e revisão;
 - definir impacto e dependências antes da alteração;
@@ -203,7 +244,7 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - definir validações semânticas extensíveis;
 - permitir revisão administrativa pelo frontend usando o mesmo domínio.
 
-## 11. Pendências de progressão geral
+## 12. Pendências de progressão geral
 
 - curva de XP do personagem;
 - divisão de XP em grupo;
@@ -212,15 +253,16 @@ A primeira simulação de Mago nível 5 contra Guerreiro nível 5 usou orçament
 - nível máximo;
 - relação entre nível do personagem, perícia e profissão.
 
-## 12. Próximas validações
+## 13. Próximas validações
 
 1. Materializar Lobo Alfa, bandido individual e grupo de bandidos.
 2. Confirmar que inventário, equipamentos, ações e saque ficam definidos antes da interação.
-3. Promover um ator anônimo sobrevivente para ator persistente sem duplicação.
-4. Revisar um conteúdo tematicamente incoerente e validar versionamento e escopo.
-5. Criar Guerreiro, Gatuno, Arqueiro, Mago e híbrido com o mesmo orçamento.
-6. Testar os cinco atributos nos níveis 1, 5, 10, 20 e 50.
-7. Simular combate temporal e medir duração, acerto e frequência de ações.
-8. Simular Comércio com passivas e limites de preço.
-9. Simular Ferraria em receitas triviais, equivalentes e difíceis.
-10. Ajustar antes de publicar versões `v1.0`.
+3. Consumir uma poção e munições durante o combate e confirmar que não aparecem no saque.
+4. Gerar drops naturais determinísticos e aplicar condições do corpo.
+5. Testar pilhas, divisão, transferência, peso e sobrecarga.
+6. Reservar materiais para fabricação e impedir venda ou consumo simultâneo.
+7. Promover ator anônimo sobrevivente para persistente sem duplicação.
+8. Revisar conteúdo incoerente e validar versionamento e escopo.
+9. Criar Guerreiro, Gatuno, Arqueiro, Mago e híbrido com o mesmo orçamento.
+10. Simular combate, Comércio e Ferraria integrados ao inventário.
+11. Ajustar antes de publicar versões `v1.0`.

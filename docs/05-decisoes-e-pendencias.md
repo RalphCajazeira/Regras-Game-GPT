@@ -1,195 +1,142 @@
 # Decisões e Pendências
 
-Este arquivo separa regras aceitas de propostas ainda sujeitas a testes.
+Este arquivo separa decisões canônicas de pontos ainda sujeitos a implementação e simulação.
 
-## 1. Arquitetura
+## 1. Arquitetura canônica
 
-- O GPT conduz interações usando snapshots versionados.
-- O GPT pode criar, corrigir, balancear e evoluir conteúdos por Actions válidas.
-- O backend calcula, valida, persiste e aplica consequências autoritativas.
-- Validação não significa imutabilidade.
-- Recursos ausentes não podem ser acrescentados retroativamente a uma sessão em andamento.
-- Regras ficam nos serviços de aplicação e domínio, não presas a REST, GraphQL ou frontend.
-- O frontend futuro reutiliza os mesmos serviços, regras e validações.
+```text
+GPT → intenção, criatividade, diálogo e narração
+Widget JS → interface, prévias e interações rápidas
+MCP Server → ferramentas tipadas e recursos de UI
+Backend → regras oficiais, resolução e persistência
+Banco → estado, histórico, definições e instâncias
+```
 
-## 2. Actions e contratos operacionais
+Decisões:
 
-- O GPT possui limite de 30 Actions expostas.
-- O catálogo inicial planeja 22 Actions e reserva 8 vagas.
-- REST + OpenAPI é a interface canônica do GPT.
-- GraphQL pode ser avaliado para o frontend, mas não substitui as Actions.
-- Uma Action representa domínio ou fluxo; microoperações usam enums tipados.
-- Serviços e endpoints internos não contam como Actions.
-- Novos sistemas reutilizam Actions existentes sempre que compartilharem invariantes.
-- Toda mutação crítica usa idempotência e `stateVersion`.
-- O OpenAPI deve falhar automaticamente acima de 30 `operationId`s.
-- Não expor mutações arbitrárias ou payload sem schema.
+- a experiência principal será um ChatGPT App/Plugin com Apps SDK, MCP e widgets;
+- Custom GPT Actions/OpenAPI passa a ser legado/fallback;
+- REST pode permanecer como transporte interno ou cliente externo;
+- MCP, REST, widget e administração reutilizam os mesmos serviços;
+- regras não ficam duplicadas no widget ou prompt;
+- estado oficial permanece no backend;
+- identidade deriva de OAuth/token;
+- dados do Mestre não podem vazar ao widget.
+
+## 2. Fluxos
+
+### Ação comum
+
+```text
+widget → prévia → confirmação → backend resolve → widget atualiza
+```
+
+### Ação criativa
+
+```text
+jogador escreve → GPT interpreta → backend resolve → GPT narra
+```
+
+### Evento importante
+
+```text
+backend retorna narrationDirective → widget atualiza → GPT narra ou pede decisão
+```
+
+## 3. Ferramentas MCP
 
 Catálogo inicial:
 
 ```text
-loadGame
-searchContent
-getContent
-manageContent
+loadGameContext
+searchGameContent
+getGameContent
+loadWidgetView
+previewGameCommand
+resolveGameCommand
+resolveCreativeIntent
+manageContentBundle
 materializeActors
 manageActor
 manageRelationships
 manageInventory
-startOrLoadEncounter
-checkpointEncounter
-submitEncounterResolution
-startOrLoadTrade
-submitTrade
-startOrLoadCraft
-submitCraftResolution
-startOrLoadSkillSession
-submitSkillResolution
+manageTrade
+manageCraft
 manageMission
-applyProgression
 advanceWorldTime
 manageWorldState
+checkpointSession
+finalizeSession
 cancelSession
 ```
 
-## 3. Criação, validação e materialização em lote
+- manter catálogo focado;
+- não criar ferramenta por microação;
+- não criar ferramenta genérica arbitrária;
+- ferramentas de leitura, prévia e escrita são separadas;
+- widget pode chamar ferramentas autorizadas diretamente;
+- o antigo limite de 30 Actions não é regra canônica da arquitetura MCP.
 
-### Decisão consolidada
+## 4. Estado e segurança
 
-```text
-GPT monta pacote completo em memória
-→ backend valida todos os nós e relações
-→ reutiliza conteúdo existente
-→ cria somente o que falta e está autorizado
-→ materializa temporariamente ou persiste
-→ devolve snapshot, IDs e mapa de referências
-```
+- UUID é identidade técnica;
+- definições possuem `code` e `version`;
+- `clientRef` liga nós em bundles;
+- toda mutação usa idempotência e `stateVersion`;
+- autorização é validada por recurso;
+- `playerId` enviado não comprova identidade;
+- segredos não entram em dados renderizados;
+- logs e tracing são obrigatórios.
 
-- O pacote pode conter atores, atributos, ações, habilidades, magias, perícias, passivas, equipamentos, itens, drops, inventário e vínculos.
-- Nem todo ator precisa possuir todos os componentes.
-- Ausência de componente não aplicável é válida.
-- Componente enviado deve ser validado integralmente.
-- A validação deve acumular todos os problemas independentes detectáveis.
-- O backend não deve parar no primeiro erro.
-- Cada erro deve indicar `clientRef`, domínio, caminho, regra, esperado, recebido e recuperação.
-- Criação completa usa `ALL_OR_NOTHING` por padrão.
-- Com erro bloqueante, nada é persistido.
-- Pacotes podem ser apenas validados, materializados temporariamente, persistidos ou promovidos.
-- Conteúdo temporário pode participar de combate e depois ser descartado ou promovido.
-- Pacotes mistos podem reutilizar conteúdos existentes e criar conteúdos faltantes na mesma transação.
+## 5. Bundles
+
+- GPT pode montar pacote completo em memória;
+- backend valida todos os componentes aplicáveis;
+- todos os erros detectáveis são retornados juntos;
+- conteúdo existente é reutilizado;
+- conteúdo faltante pode ser criado quando autorizado;
+- persistência completa usa `ALL_OR_NOTHING`;
+- materialização temporária pode ser promovida;
+- widget pode renderizar pacote temporário sem torná-lo canônico.
+
+## 6. Mestre e resolução
+
+- backend é autoridade oficial para ações comuns no widget;
+- backend pode resolver vários eventos até `NEXT_PLAYER_DECISION`;
+- GPT controla intenção aberta, NPCs importantes e narrativa;
+- GPT localmente resolve mecânica somente em fallback explicitamente autorizado;
+- checkpoints ocorrem por fase ou consequência importante, não por microação;
+- replay parcial preserva eventos válidos;
+- resumo mecânico e narrativo suportam retomada.
+
+## 7. Widget
 
 Modos:
 
 ```text
-VALIDATE_ONLY
-MATERIALIZE_TEMPORARY
-PERSIST_IF_VALID
-PERSIST_REQUIRED
-PROMOTE_TEMPORARY
+CHARACTER_SHEET
+EXPLORATION_MAP
+TACTICAL_BATTLE_MAP
+INVENTORY
+LOOT
+TRADE
+CRAFTING
+MISSION_LOG
+RELATIONSHIP_VIEW
 ```
 
-Estratégias por nó:
+Decisões:
 
-```text
-REUSE_REQUIRED
-REUSE_OR_CREATE
-CREATE_NEW
-CREATE_VARIANT
-INLINE_TEMPORARY
-UPDATE_EXISTING
-REVIEW_EXISTING
-```
-
-## 4. Identificadores
-
-- UUID é a identidade técnica principal de definições, instâncias, atores, sessões e vínculos.
-- Definições reutilizáveis também possuem `code` e `version`.
-- O GPT usa `clientRef` para relacionar nós antes de receber UUIDs.
-- O backend devolve `referenceMap` após validar ou persistir.
-- Sequências numéricas servem para ordem, versão e números amigáveis, não como identidade principal.
-- Relações persistentes usam UUID e chaves estrangeiras.
-
-## 5. Componentes opcionais de ator
-
-Podem existir quando aplicáveis:
-
-```text
-combat
-inventory
-equipment
-skills
-proficiencies
-abilities
-spells
-passives
-loot
-merchant
-relationships
-companion
-missionLinks
-crafting
-```
-
-O backend distingue:
-
-```text
-OPTIONAL_NOT_PROVIDED
-NOT_APPLICABLE
-REQUIRED_MISSING
-PROVIDED_INVALID
-```
-
-Exemplos válidos:
-
-- animal sem equipamento;
-- espírito sem inventário físico;
-- NPC sem magia;
-- comerciante sem perfil de combate;
-- monstro sem perícias sociais.
-
-## 6. Prontidão
-
-Perfis:
-
-```text
-ACTOR_COMPLETE
-COMBAT_READY
-TRADE_READY
-CRAFT_READY
-EVALUATION_READY
-COMPANION_READY
-PERSISTENCE_READY
-```
-
-Estados:
-
-```text
-READY
-INCOMPLETE
-INVALID
-REQUIRES_MATERIALIZATION
-REQUIRES_REVIEW
-```
-
-Um ator pode estar completo para diálogo e não estar pronto para combate.
-
-## 7. Criação, revisão e versionamento
-
-- Todo conteúdo pode ser revisado com justificativa coerente.
-- Sugestões do jogador são avaliadas, não aplicadas automaticamente.
-- Revisões preferem manter ID e código e criar nova versão.
-- Toda revisão declara escopo.
-- Eventos históricos não são recalculados automaticamente.
-- O backend retorna erros acionáveis.
-
-Escopos:
-
-```text
-DEFINITION_FUTURE_INSTANCES
-CURRENT_INSTANCE
-SELECTED_INSTANCES
-ALL_COMPATIBLE_INSTANCES
-```
+- mapa inicial pode ser grafo de pontos e rotas;
+- viagem avança `worldTime` oficialmente;
+- combate usa mapa 2D simples e metros;
+- interface apresenta janelas de decisão;
+- motor continua baseado em ticks;
+- jogador pode planejar mover, atacar e recuar;
+- backend pode interromper o plano;
+- loot é clicável e reflete estado real;
+- GPT não narra cada ataque comum;
+- widget deve ser remontável a partir do backend.
 
 ## 8. Atributos
 
@@ -201,201 +148,108 @@ Vitalidade
 Inteligência
 ```
 
-- Agilidade representa rapidez e mobilidade.
-- Destreza representa precisão e controle.
-- Cada nível concede 10 pontos primários.
-- Pontos podem permanecer não distribuídos.
-- O backend calcula o orçamento esperado por nível.
-- Erro de distribuição deve informar total esperado, recebido e diferença.
-- Especializações usam secundários, perícias, proficiências, profissões e passivas.
+- Agilidade = rapidez e mobilidade;
+- Destreza = precisão e controle;
+- cada nível concede 10 pontos primários, ainda sujeito a calibração;
+- especializações usam perícias, proficiências, profissões e passivas.
 
 ## 9. Atores
 
-- Ator é o modelo universal para pessoas, animais, monstros, criaturas, espíritos, construtos, invocações e jogadores.
-- Natureza, espécie, arquétipo, facção, papel e controle são separados.
-- Entidades irrelevantes podem existir como avistamentos.
-- Antes de interação mecânica, o ator é validado e materializado.
-- Materialização pode ser temporária.
-- Dados da sessão ficam congelados no snapshot.
-- O GPT não inventa retroativamente ações, itens, dinheiro ou drops.
-- Instâncias temporárias podem ser promovidas sem duplicação.
-- Materialização usa semente determinística.
+- modelo universal para pessoas, animais, monstros, criaturas, espíritos, construtos, invocações e jogadores;
+- natureza, espécie, arquétipo, papel, facção e controle são separados;
+- materialização ocorre quando a entidade se torna relevante;
+- ficha materializada define recursos, ações, inventário e loot;
+- companheiro é vínculo, não espécie;
+- atores anônimos podem ser temporários e promovidos.
 
-## 10. Itens, variantes, qualidades e instâncias
+## 10. Itens, qualidade e inventário
 
 ```text
-Definição única com perfil Comum
-→ variante somente quando houver diferença real
+Definição Comum de referência
+→ variante apenas para diferença real
 → qualidade na instância
-→ valores finais resolvidos e congelados
+→ valores resolvidos congelados
 ```
 
-- Qualidade não cria novo cadastro.
-- Cada unidade criada, encontrada ou comprada é uma instância.
-- A instância guarda qualidade, orçamento, modificadores e preços resolvidos.
-- Mudanças futuras não alteram silenciosamente instâncias existentes.
-- Migração é explícita.
+- qualidade não cria cadastro duplicado;
+- toda instância possui localização e propriedade;
+- item não pode estar em dois lugares ou operações;
+- consumo afeta loot;
+- drops naturais e itens carregados são separados;
+- reservas impedem uso concorrente.
 
-## 11. Equipamentos
+## 11. Combate
 
-- Todo equipamento declara modificadores, inclusive zeros.
-- Nível e slot formam orçamento Comum de referência.
-- Qualidade multiplica o orçamento da instância.
-- Distribuição adicional segue o perfil da definição.
-- Equipamentos podem conceder ações, passivas e proficiências.
-- Qualidade não altera automaticamente peso, slots, material ou empunhadura.
+- posições e alcance em metros;
+- linha do tempo contínua em ticks;
+- preparação e recuperação;
+- uma rolagem de acerto;
+- crítico, Defesa Crítica e mitigação;
+- ações podem ser interrompidas;
+- backend resolve oficial e retorna eventos;
+- widget anima até a próxima decisão;
+- ações criativas continuam pelo GPT.
 
-## 12. Inventário, pilhas e saque
+## 12. Economia e fabricação
 
-- Todo item possui localização e propriedade.
-- A mesma unidade não pode estar em dois locais ou operações.
-- Pilhas exigem compatibilidade completa.
-- Consumíveis, munições e cargas são removidos conforme a ação.
-- Itens consumidos não reaparecem no saque.
-- Itens carregados, drops naturais e recompensas externas são fontes distintas.
-- Pacotes de ator podem criar e vincular inventário na mesma transação.
+- moeda `CROWN`;
+- definição guarda preço Comum;
+- instância guarda preço resolvido;
+- backend controla saldo, estoque e transação;
+- fabricação referencia definição existente;
+- sucesso cria instância, não definição por qualidade;
+- qualidade, consumo e XP são autoritativos.
 
-## 13. Fabricação
+## 13. Pendências bloqueadoras próximas
 
-- Toda fabricação usa receita conhecida.
-- A receita referencia definição e variante de saída.
-- Cada sucesso cria uma instância.
-- Perícia melhora sucesso e qualidade dentro do teto.
-- O backend resolve qualidade, orçamento, modificadores e preço.
-- Consumo, criação e XP são autoritativos.
-- Valores ficam congelados.
+1. Sistema de Condições e Efeitos.
+2. Progressão, XP e níveis.
+3. Encontros, objetivos e transições completas.
+4. Relações, companheiros, romance e domesticação.
+5. Missões e recompensas.
+6. Tempo, descanso e recuperação detalhados.
+7. Mundo, locais e exploração.
+8. Morte, incapacidade e consequências.
+9. Facções, reputação e crimes.
 
-## 14. Economia
+## 14. Pendências técnicas
 
-- A moeda é Coroa, código `CROWN`.
-- A definição guarda preço Comum.
-- A instância guarda preço-base resolvido.
-- Mercado e negociação definem preço final.
-- O backend controla saldo, estoque, propriedade e atomicidade.
+- auditar backend atual;
+- definir migrations expand/contract;
+- implementar MCP Server e recursos de UI;
+- implementar OAuth e autorização;
+- definir política final de permissões do App;
+- implementar `structuredContent`, `content` e `_meta`;
+- implementar diretiva narrativa;
+- definir limites de payload e paginação;
+- implementar tracing e métricas;
+- testar remontagem de widget;
+- testar seleção de ferramenta pelo GPT;
+- testar chamadas diretas do widget;
+- validar disponibilidade da plataforma por plano/workspace.
 
-## 15. Combate e ações
-
-- Posições e alcances usam metros.
-- O tempo usa linha contínua em ticks.
-- Existe uma única rolagem de acerto.
-- Ações possuem preparação, recuperação e tempo mínimo.
-- Munições, consumíveis e equipamentos precisam existir no snapshot.
-- Combate só inicia com participantes `COMBAT_READY`.
-
-## 16. Perícias, profissões e passivas
-
-- Atributos representam potencial.
-- Perícias representam treinamento.
-- Proficiências representam domínio específico.
-- Profissões agrupam perícias, receitas, passivas e desbloqueios.
-- O backend calcula pontuação efetiva, XP e níveis.
-
-## 17. Contratos comuns
-
-Solicitação:
+## 15. Primeiro recorte vertical
 
 ```text
-operation
-requestId
-idempotencyKey
-baseStateVersion
-dryRun
-context
-payload tipado
+login
+→ carregar campanha
+→ abrir mapa
+→ viajar
+→ iniciar combate
+→ mover
+→ atacar
+→ resolver até próxima decisão
+→ derrotar inimigo
+→ abrir loot
+→ transferir itens
+→ narrar desfecho
+→ retomar após recarregar
 ```
 
-Resposta:
+## 16. Roadmap do Codex
 
-```text
-status
-previousStateVersion
-newStateVersion
-result
-snapshot
-snapshotDelta
-referenceMap
-warnings
-issues
-recoveryActions
-availableNextOperations
-```
+A implementação deve seguir:
 
-## 18. Pendências de lotes e integração
+`docs/18-roadmap-de-implementacao-para-o-codex.md`
 
-- definir limite de nós, relações e tamanho do pacote;
-- definir duração de materializações temporárias;
-- definir preservação de UUID na promoção;
-- definir catálogo final de `nodeType` e `relationType`;
-- definir política de atomicidade parcial;
-- definir retenção de idempotência;
-- definir autenticação e autorização;
-- definir formato final de `snapshotDelta`;
-- criar exemplos OpenAPI completos;
-- testar correção automática após múltiplos erros;
-- testar rollback total;
-- testar pacote misto com conteúdo reutilizado e novo.
-
-## 19. Pendências de atributos
-
-- validar 16 pontos livres com cinco atributos;
-- definir limite por atributo;
-- testar níveis 1, 5, 10, 20 e 50;
-- calibrar secundários, Vida, Mana e Vigor.
-
-## 20. Pendências de atores
-
-- orçamento por nível e ameaça;
-- espécies, arquétipos e variantes;
-- nível de desafio;
-- grupos;
-- moral, fuga e rendição;
-- domesticação e recrutamento;
-- relações, impressões e memórias.
-
-## 21. Pendências de equipamentos e inventário
-
-- multiplicadores de qualidade e slot;
-- arredondamento e custos;
-- perfis de distribuição;
-- durabilidade e reparo;
-- limites de pilha e sobrecarga;
-- divisão de saque;
-- identificação de itens;
-- expiração de cadáveres.
-
-## 22. Pendências de fabricação e economia
-
-- fórmula de sucesso;
-- limiares de qualidade;
-- política de falha;
-- fabricação em lote;
-- XP e retorno decrescente;
-- cesta econômica;
-- margens e negociação;
-- mercados regionais;
-- inflação.
-
-## 23. Pendências de combate e progressão
-
-- chance de acerto e influência do nível;
-- Defesa Crítica e mitigação;
-- fila de eventos;
-- tempos de ações e movimento;
-- cobertura, projéteis e reações;
-- curva de XP;
-- divisão de XP em grupo;
-- nível máximo;
-- recompensas de missão.
-
-## 24. Próximas validações
-
-1. Enviar NPC nível 5 com orçamento incorreto e verificar erro completo.
-2. Enviar NPC sem magia e confirmar ausência válida.
-3. Enviar NPC com magia incompleta e confirmar rejeição localizada.
-4. Validar pacote com três erros independentes na mesma resposta.
-5. Materializar grupo temporário e iniciar combate.
-6. Promover um sobrevivente sem duplicar identidade.
-7. Persistir pacote completo com conteúdos reutilizados e novos.
-8. Forçar falha no último vínculo e confirmar rollback total.
-9. Repetir a mesma `idempotencyKey` e impedir duplicação.
-10. Garantir OpenAPI com no máximo 30 Actions.
+O primeiro trabalho é auditoria e plano, não reescrita ampla.

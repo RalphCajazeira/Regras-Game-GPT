@@ -18,6 +18,11 @@ Este arquivo separa as regras aceitas das propostas que ainda precisam de testes
 - Cada nível concede 10 pontos primários.
 - Pontos podem permanecer não distribuídos.
 - Secundários são derivados e retornados pelo backend.
+- O atributo genérico `speed` foi substituído por:
+  - `movementSpeed`;
+  - `physicalActionSpeed`;
+  - `castingSpeed`.
+- `movementSpeed` é expresso em metros por segundo.
 
 ### Combate
 
@@ -29,6 +34,28 @@ Este arquivo separa as regras aceitas das propostas que ainda precisam de testes
 - Defesa Crítica pode anular completamente o ataque.
 - Ataques localizados trocam precisão por crítico ou penetração.
 - Magias declaram qual oposição utilizam.
+- O combate utiliza posições e alcances em metros.
+- O combate usa linha do tempo contínua, não rodadas rígidas.
+- Cada ator possui `nextReadyAt`.
+- Ações possuem preparação e recuperação.
+- O próximo evento é aquele com menor tempo agendado.
+- Movimento e ataque são ações separadas, salvo ação composta.
+- Ações em preparação podem ser interrompidas.
+- Reações geram dívida temporal.
+- Personagens rápidos podem agir mais vezes antes de ações lentas terminarem.
+- O GPT não força acidentes para anular vantagens legítimas de mobilidade.
+
+### Ações, habilidades e magias
+
+- Existe uma estrutura universal para ataques, habilidades, magias, movimento, reações, consumíveis, cura e fuga.
+- Alcance e áreas são expressos em metros.
+- Áreas podem usar círculo, cone, linha e raio ao redor do usuário.
+- Toda ação declara alvo, alcance, tempo, custo, acerto, dano, cura, efeitos e interrupção aplicáveis.
+- Toda ação possui tempos mínimos.
+- Declarar uma ação não significa resolvê-la imediatamente.
+- Alcance e linha de visão são revalidados em `resolveAt`.
+- Custos declaram se são consumidos no início, resolução ou sucesso.
+- Armas e equipamentos podem conceder ações completas.
 
 ### Equipamentos
 
@@ -41,6 +68,8 @@ Este arquivo separa as regras aceitas das propostas que ainda precisam de testes
 - Todo item comercializável possui preço-base de compra, preço-base de venda, moeda e peso.
 - Qualidade não altera automaticamente o peso.
 - Equipamento define preços-base; mercado e negociação definem preço final.
+- Equipamentos podem modificar movimento, ação física e conjuração.
+- Armas, escudos e focos podem conceder ações por código.
 
 ### Economia e comércio
 
@@ -52,7 +81,7 @@ Este arquivo separa as regras aceitas das propostas que ainda precisam de testes
 - Comerciantes possuem especialidade, estoque e dinheiro limitados.
 - Transações são atômicas.
 - Qualidade e condição do item são conceitos separados.
-- Recompensas e gastos devem ser calibrados para preservar o valor da moeda.
+- Recompensas e gastos devem preservar o valor da moeda.
 
 ## Simulação anterior inválida
 
@@ -69,29 +98,51 @@ A taxa de vitória daquela simulação não deve ser usada como validação.
 
 - Confirmar os 16 pontos livres da criação.
 - Definir limite de investimento por atributo.
-- Testar as fórmulas nos níveis 1, 5, 10, 20 e 50.
+- Testar fórmulas nos níveis 1, 5, 10, 20 e 50.
 - Confirmar a fórmula definitiva de ATK Físico.
-- Definir unidade e efeito de Velocidade e Capacidade de Carga.
 - Calibrar Vida, Mana e Vigor.
+- Calibrar `movementSpeed`, `physicalActionSpeed` e `castingSpeed`.
+- Definir unidade e efeito final de Capacidade de Carga.
 
-## Pendências de combate
+## Pendências de combate temporal
 
-- Validar a base de 75% da chance de acerto.
-- Calibrar a influência do nível.
+- Validar `10 ticks = 1 segundo`.
+- Calibrar disponibilidade inicial por Iniciativa.
+- Definir prioridade de eventos com o mesmo tempo.
+- Validar retorno decrescente de velocidade.
+- Definir regras de ações simultâneas.
+- Definir custo de Vigor por corrida.
+- Definir engajamento, desengajamento e reações.
+- Definir linha de visão, cobertura, obstáculos e terreno.
+- Definir projéteis com tempo de deslocamento.
+- Validar perseguições e recuos em áreas abertas e fechadas.
 - Validar Defesa Crítica e mitigação passiva.
-- Definir economia de ações e movimento.
-- Definir duas armas, distâncias, condições, cura e recuo.
 - Definir política de aleatoriedade e auditoria.
+
+## Pendências de ações, habilidades e magias
+
+- Calibrar tempos de ataques básicos por arma.
+- Calibrar tempos e custos de magias.
+- Definir fórmula de concentração.
+- Definir interrupção, cancelamento e reembolso de recursos.
+- Definir recargas e cargas.
+- Definir movimento permitido durante preparação.
+- Definir ataques compostos e investidas.
+- Validar formatos e seleção de áreas.
+- Definir cura, sobrecura e ressurreição.
+- Criar sistema de condições e efeitos.
 
 ## Pendências de equipamentos
 
 - Validar multiplicadores de slot.
 - Calibrar custos dos modificadores.
+- Calibrar modificadores temporais.
 - Definir limites para trocas com penalidades negativas.
 - Definir orçamento de efeitos especiais.
 - Definir materiais, fabricação, conservação e reparos.
 - Definir requisitos e equipamentos versáteis.
 - Validar preços-base por categoria em conjunto com a economia.
+- Definir penalidades de peso e carga sobre movimento.
 
 ## Pendências de economia
 
@@ -116,13 +167,16 @@ A taxa de vitória daquela simulação não deve ser usada como validação.
 
 ## Próximas validações
 
-### Atributos e combate
+### Atributos, ações e combate
 
-1. Fechar as fórmulas de atributos.
-2. Criar Guerreiro, Gatuno, Mago e híbrido com o mesmo orçamento.
-3. Testar níveis 1, 5, 10 e 50.
-4. Simular encontros de mesmo nível e de diferença extrema.
-5. Medir chance de acerto, dano, duração e taxa de vitória.
+1. Criar Guerreiro, Gatuno, Mago, Arqueiro e híbrido com o mesmo orçamento.
+2. Definir ações básicas de adaga, espada pesada, arco e magia inicial.
+3. Testar níveis 1, 5, 10, 20 e 50.
+4. Simular encontros de mesmo nível e diferença extrema.
+5. Simular perseguição de arqueiro contra combatente lento.
+6. Simular personagem rápido interrompendo conjuração.
+7. Simular jogador contra inimigo rápido e inimigo lento simultaneamente.
+8. Medir acerto, dano, tempo entre ações, duração e taxa de vitória.
 
 ### Economia
 

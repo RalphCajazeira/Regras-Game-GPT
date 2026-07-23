@@ -1,47 +1,59 @@
 # Integração entre GPT, Backend e Frontend
 
-**Versão da proposta:** `integration-v0.1`  
+**Versão da proposta:** `integration-v0.2`  
 **Status:** em validação
 
 ## 1. Objetivo
 
 Permitir que o GPT conduza o jogo com fluidez, enquanto o backend mantém a autoridade sobre dados persistidos, validações e consequências finais.
 
-O backend não precisa resolver cada microação do combate. A comunicação principal ocorre no início, em checkpoints opcionais e no encerramento.
+O backend não precisa resolver cada microação. A comunicação principal ocorre ao carregar uma interação, em checkpoints opcionais e ao concluir uma operação persistente.
 
-## 2. Responsabilidades
+Esse padrão é usado por combate, comércio e futuras interações complexas.
 
-### 2.1 GPT
+## 2. Regra central
+
+```text
+Backend = autoridade de dados, regras versionadas, validação e persistência.
+GPT = condutor, interpretador e resolvedor local dentro do snapshot recebido.
+Frontend = visualização e administração usando o mesmo domínio.
+```
+
+## 3. Responsabilidades
+
+### 3.1 GPT
 
 O GPT deve:
 
 - interpretar a intenção do jogador;
-- consultar fichas e conteúdos persistidos;
-- usar as regras versionadas;
-- manter um estado local do encontro;
-- calcular chances e danos;
-- gerar e registrar rolagens;
+- consultar fichas, estoques e conteúdos persistidos;
+- usar regras versionadas;
+- manter estado local da interação;
+- calcular chances, danos, preços e modificadores permitidos;
+- gerar e registrar rolagens quando necessárias;
 - narrar conforme os resultados mecânicos;
 - impedir ações que o snapshot indique como inválidas;
-- enviar ao backend um histórico estruturado;
-- não inventar custos, atributos, itens, efeitos ou recompensas ausentes.
+- enviar ao backend histórico estruturado e resultado consolidado;
+- não inventar custos, atributos, itens, saldos, estoques, descontos, efeitos ou recompensas ausentes.
 
-### 2.2 Backend
+### 3.2 Backend
 
 O backend deve:
 
-- persistir mundos, campanhas, atores, itens e encontros;
+- persistir mundos, campanhas, atores, itens, comerciantes, estoques e encontros;
 - calcular atributos derivados;
+- calcular preços-base e faixas comerciais;
 - validar conteúdos criados pelo GPT;
 - gerar snapshots completos;
 - controlar `stateVersion` e versões de regras;
-- validar a resolução enviada;
-- persistir recursos finais, condições e consequências;
-- calcular XP, subida de nível e pontos não distribuídos;
+- validar resoluções e transações enviadas;
+- persistir recursos, condições, propriedade, saldos e consequências;
+- calcular XP, subida de nível, recompensas e pontos não distribuídos;
+- garantir operações atômicas;
 - retornar erros acionáveis;
 - manter histórico e auditoria.
 
-### 2.3 Frontend futuro
+### 3.3 Frontend futuro
 
 O frontend poderá:
 
@@ -49,10 +61,56 @@ O frontend poderá:
 - mostrar equipamentos e modificadores;
 - acompanhar encontros;
 - apresentar chances, rolagens e histórico;
+- exibir saldo, estoque, preços e ofertas;
 - permitir revisão administrativa;
 - compartilhar as mesmas regras e validações do GPT e do backend.
 
-## 3. Fluxo recomendado do encontro
+## 4. Padrão de sessão versionada
+
+Interações complexas utilizam:
+
+```text
+1. GPT solicita criação ou carregamento da sessão.
+2. Backend retorna snapshot completo e versionado.
+3. GPT resolve decisões e diálogos localmente.
+4. GPT mantém log estruturado.
+5. Checkpoints podem ser enviados quando necessário.
+6. GPT envia resultado consolidado.
+7. Backend recalcula e valida.
+8. Backend persiste o resultado autoritativo.
+9. GPT apresenta o retorno final.
+```
+
+Toda sessão possui, quando aplicável:
+
+```text
+sessionId
+stateVersion
+ruleVersions
+lifecycleStatus
+snapshot
+resolutionPolicy
+```
+
+## 5. Versões de regras
+
+Exemplo:
+
+```json
+{
+  "ruleVersions": {
+    "attributes": "attributes-v0.2",
+    "combat": "combat-v0.1",
+    "equipment": "equipment-v0.2",
+    "economy": "economy-v0.1",
+    "integration": "integration-v0.2"
+  }
+}
+```
+
+Uma resolução deve informar as versões utilizadas para poder ser reproduzida.
+
+## 6. Fluxo do encontro de combate
 
 ```text
 1. GPT solicita criação ou carregamento do encontro.
@@ -67,9 +125,7 @@ O frontend poderá:
 10. GPT narra ou apresenta o retorno autoritativo final.
 ```
 
-## 4. Snapshot inicial
-
-O snapshot deve conter tudo que o GPT precisa para não consultar o backend a cada turno.
+### 6.1 Snapshot de combate
 
 ```json
 {
@@ -78,7 +134,7 @@ O snapshot deve conter tudo que o GPT precisa para não consultar o backend a ca
   "ruleVersions": {
     "attributes": "attributes-v0.2",
     "combat": "combat-v0.1",
-    "equipment": "equipment-v0.1"
+    "equipment": "equipment-v0.2"
   },
   "lifecycleStatus": "ACTIVE",
   "participants": [],
@@ -107,11 +163,9 @@ Cada participante deve incluir:
 - recompensa-base de XP, quando aplicável;
 - estado de derrota, fuga ou incapacidade.
 
-## 5. Estado local do GPT
+### 6.2 Estado local do combate
 
-Durante o encontro, o GPT mantém uma cópia de trabalho derivada do snapshot.
-
-Ele pode alterar localmente:
+O GPT pode alterar localmente:
 
 - recursos atuais;
 - posição e distância;
@@ -121,9 +175,9 @@ Ele pode alterar localmente:
 - ordem de turnos;
 - efeitos temporários.
 
-O snapshot original não é substituído. Ele permanece como base para a validação final.
+O snapshot original permanece como base da validação final.
 
-## 6. Log de ações
+### 6.3 Log de combate
 
 Cada ação deve registrar:
 
@@ -141,11 +195,7 @@ Cada ação deve registrar:
 - condições aplicadas ou removidas;
 - estado antes e depois.
 
-O log permite que o backend reproduza e confira o resultado.
-
-## 7. Resolução final
-
-Exemplo resumido:
+### 6.4 Resolução de combate
 
 ```json
 {
@@ -154,47 +204,151 @@ Exemplo resumido:
   "ruleVersions": {
     "attributes": "attributes-v0.2",
     "combat": "combat-v0.1",
-    "equipment": "equipment-v0.1"
+    "equipment": "equipment-v0.2"
   },
   "outcome": "VICTORY",
   "actions": [],
-  "finalParticipants": [
-    {
-      "actorId": "player",
-      "currentHealth": 48,
-      "currentMana": 12,
-      "currentStamina": 30,
-      "conditions": []
-    }
-  ],
+  "finalParticipants": [],
   "defeatedActorIds": ["enemy-1"],
   "escapedActorIds": [],
   "notes": []
 }
 ```
 
-## 8. Validação final
+### 6.5 Validação de combate
 
 O backend deve conferir:
 
-1. se o encontro e o snapshot existem;
-2. se `baseStateVersion` ainda é atual;
-3. se as versões de regra são aceitas;
-4. se atores, ações e alvos existiam;
-5. se alcance e relações permitiam as ações;
-6. se recursos e custos eram suficientes;
-7. se as chances foram calculadas corretamente;
-8. se as rolagens produzem os resultados informados;
-9. se crítico, Defesa Crítica e dano estão corretos;
-10. se condições, recargas e recursos finais são reproduzíveis;
-11. se participantes derrotados realmente chegaram ao estado de derrota;
-12. se o resultado final é compatível com o histórico.
+1. encontro e snapshot;
+2. `baseStateVersion`;
+3. versões de regra;
+4. atores, ações e alvos;
+5. alcance e relações;
+6. recursos e custos;
+7. chances e rolagens;
+8. crítico, Defesa Crítica, mitigação e dano;
+9. condições e recargas;
+10. estados finais e resultado.
 
-## 9. Aleatoriedade
+## 7. Fluxo da sessão comercial
+
+```text
+1. GPT solicita criação ou carregamento da sessão comercial.
+2. Backend retorna saldos, estoque, ofertas, faixas e regras.
+3. GPT conduz comparação, diálogo e negociação localmente.
+4. GPT mantém log das propostas e decisões.
+5. Ao concluir, GPT envia a transação consolidada.
+6. Backend recalcula preços e valida saldo, estoque e propriedade.
+7. Backend transfere itens e Coroas atomicamente.
+8. GPT apresenta o resultado autoritativo.
+```
+
+### 7.1 Snapshot comercial
+
+```json
+{
+  "tradeSessionId": "trade-session-id",
+  "stateVersion": 8,
+  "ruleVersions": {
+    "equipment": "equipment-v0.2",
+    "economy": "economy-v0.1",
+    "integration": "integration-v0.2"
+  },
+  "lifecycleStatus": "ACTIVE",
+  "currencyCode": "CROWN",
+  "playerBalance": 500,
+  "merchant": {},
+  "merchantBalance": 1200,
+  "stock": [],
+  "buyOffers": [],
+  "negotiationRules": {},
+  "resolutionPolicy": {
+    "allowLocalNegotiation": true,
+    "requireFinalValidation": true
+  }
+}
+```
+
+O snapshot deve conter:
+
+- saldo do jogador;
+- saldo do comerciante;
+- estoque e quantidades;
+- itens que o comerciante aceita comprar;
+- `referencePrice`, `minimumAllowedPrice` e `maximumAllowedPrice`;
+- condição dos itens;
+- especialidade e perfil comercial;
+- reputação e relação aplicáveis;
+- regras e flexibilidade de negociação;
+- versão do estado.
+
+### 7.2 Estado local da negociação
+
+O GPT pode manter localmente:
+
+- itens selecionados;
+- contrapropostas;
+- descontos ainda permitidos;
+- itens oferecidos em troca;
+- resultado de rolagens sociais;
+- valor líquido provisório.
+
+O GPT não altera saldos ou propriedade de forma persistente antes da confirmação do backend.
+
+### 7.3 Log comercial
+
+Cada negociação deve poder registrar:
+
+- proposta inicial;
+- itens e quantidades;
+- preços de referência;
+- faixas autorizadas;
+- argumentos relevantes;
+- modificadores aplicados;
+- rolagens, quando existirem;
+- contrapropostas;
+- oferta final aceita;
+- motivo de recusa, quando aplicável.
+
+### 7.4 Transação consolidada
+
+```json
+{
+  "tradeSessionId": "trade-session-id",
+  "baseStateVersion": 8,
+  "ruleVersions": {
+    "equipment": "equipment-v0.2",
+    "economy": "economy-v0.1"
+  },
+  "purchases": [],
+  "sales": [],
+  "currencyTransferred": 120,
+  "finalOffers": [],
+  "negotiationLog": []
+}
+```
+
+### 7.5 Validação comercial
+
+O backend deve conferir:
+
+1. sessão e versão;
+2. saldos;
+3. estoque e propriedade;
+4. categorias aceitas;
+5. preços-base;
+6. condição e mercado;
+7. faixas autorizadas;
+8. negociação;
+9. total monetário;
+10. ausência de duplicação;
+11. transferência completa e atômica.
+
+## 8. Aleatoriedade
 
 Na primeira versão, o GPT pode gerar números d100 e registrá-los.
 
-O backend consegue validar a faixa e a coerência da resolução, mas não provar que o número foi aleatório.
+O backend consegue validar faixa e coerência, mas não provar que o número foi aleatório.
 
 Modo auditável futuro:
 
@@ -203,21 +357,22 @@ Modo auditável futuro:
 - pacote de rolagens pré-gerado;
 - assinatura do snapshot.
 
-Qualquer uma dessas opções mantém uma única chamada inicial, sem exigir comunicação a cada ataque.
+Esse padrão pode ser usado tanto em combate quanto em negociação.
 
-## 10. Checkpoints
+## 9. Checkpoints
 
 Checkpoints são opcionais e podem ser usados quando:
 
-- o encontro durar muitas rodadas;
+- uma interação durar muitas etapas;
+- ocorrer consequência persistente importante;
 - um participante importante for derrotado;
+- estoque ou saldo precisar ser reservado;
 - ocorrer mudança de fase;
-- a conversa estiver perto de ser interrompida;
-- houver consequência persistente relevante.
+- a conversa estiver perto de ser interrompida.
 
-Um checkpoint não encerra o combate. Ele valida e persiste um trecho do histórico e retorna uma nova `stateVersion`.
+Um checkpoint valida e persiste um trecho e retorna nova `stateVersion`.
 
-## 11. Concorrência e divergência
+## 10. Concorrência e divergência
 
 Se o estado persistido mudar durante a resolução local:
 
@@ -225,16 +380,18 @@ Se o estado persistido mudar durante a resolução local:
 baseStateVersion != currentStateVersion
 ```
 
-O backend deve rejeitar a submissão com erro acionável e informar:
+O backend deve rejeitar a submissão e informar:
 
 - versão esperada;
 - versão recebida;
 - alterações conflitantes;
 - possibilidade de recarregar, reaplicar ou cancelar com segurança.
 
-## 12. Operações conceituais
+Isso evita vender o mesmo item duas vezes, gastar saldo já utilizado ou concluir combate sobre um estado alterado.
 
-A API poderá expor operações equivalentes a:
+## 11. Operações conceituais
+
+### Combate
 
 ```text
 createEncounter
@@ -244,51 +401,67 @@ submitEncounterResolution
 cancelEncounter
 ```
 
-Os nomes definitivos dependem do backend, mas cada operação deve ter uma finalidade única e resposta acionável.
+### Comércio
 
-## 13. Criação e revisão de conteúdo
+```text
+createTradeSession
+loadTradeSession
+checkpointTradeSession
+submitTradeTransaction
+cancelTradeSession
+```
 
-O GPT também pode propor:
+### Conteúdo e administração
 
-- atores;
-- criaturas;
-- itens;
-- habilidades;
-- magias;
-- efeitos;
-- recompensas.
+```text
+createContentDefinition
+reviseContentDefinition
+createMerchant
+updateMerchantStock
+grantCurrencyReward
+```
+
+Os nomes definitivos dependem do backend, mas cada operação deve ter finalidade única e resposta acionável.
+
+## 12. Criação e revisão de conteúdo
+
+O GPT pode propor:
+
+- atores e criaturas;
+- itens e equipamentos;
+- habilidades, magias e efeitos;
+- comerciantes e estoques iniciais;
+- serviços;
+- recompensas;
+- preços-base e categorias econômicas.
 
 O backend valida a estrutura e as regras antes de persistir.
 
-Revisões devem preferir manter o mesmo identificador e criar nova versão da definição, preservando vínculos e histórico. Eventos antigos não são recalculados automaticamente.
+Revisões devem preferir manter o mesmo identificador e criar nova versão da definição, preservando vínculos e histórico. Eventos e transações antigas não são recalculados automaticamente.
 
-## 14. Erros acionáveis
+## 13. Erros acionáveis
 
-Exemplo:
+Exemplo de conflito:
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "ENCOUNTER_STATE_VERSION_CONFLICT",
-    "message": "A resolução foi criada a partir da versão 12, mas o encontro está na versão 13.",
+    "code": "STATE_VERSION_CONFLICT",
+    "message": "A resolução foi criada a partir da versão 12, mas a sessão está na versão 13.",
     "details": {
       "expectedStateVersion": 13,
       "receivedStateVersion": 12
     },
     "recoveryActions": [
-      "Recarregue o encontro.",
+      "Recarregue a sessão.",
       "Reaplique somente as ações ainda compatíveis.",
-      "Cancele o encontro com segurança caso não seja possível reconciliar."
+      "Cancele com segurança caso não seja possível reconciliar."
     ]
   }
 }
 ```
 
-## 15. Regra central
+## 14. Regra final
 
-```text
-Backend = autoridade de dados, validação e persistência.
-GPT = condutor, interpretador e resolvedor local das regras.
-Frontend = visualização e administração compartilhando o mesmo domínio.
-```
+O GPT possui liberdade narrativa e operacional dentro do snapshot. O backend define os limites, reproduz os cálculos e somente persiste resultados válidos.

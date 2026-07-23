@@ -1,32 +1,23 @@
 # Contratos Operacionais, Actions, Erros e Recuperação
 
-**Versão da proposta:** `operations-v0.1`  
+**Versão da proposta:** `operations-v0.2`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Definir a fachada operacional usada pelo GPT para acessar o backend sem ultrapassar o limite de Actions, sem expor microendpoints e sem obrigar o GPT a adivinhar como continuar após erros.
+Definir a fachada operacional usada pelo GPT para acessar o backend sem ultrapassar o limite de Actions, sem expor microendpoints e sem obrigar o GPT a adivinhar como criar, corrigir ou continuar uma operação.
 
-Este documento não substitui os sistemas de jogo. Ele define como todos eles são expostos ao GPT.
+Este documento define como todos os sistemas de jogo são expostos ao GPT.
 
 ## 2. Restrição arquitetural
 
-O GPT do projeto possui limite de:
-
 ```text
-30 Actions expostas
+Limite: 30 Actions expostas
+Planejadas: 22 Actions
+Reservadas: 8 Actions
 ```
 
-Orçamento inicial:
-
-```text
-22 Actions planejadas
-8 Actions reservadas
-```
-
-As vagas reservadas não devem ser consumidas sem justificativa arquitetural.
-
-O limite afeta somente a fachada OpenAPI disponível ao GPT. O backend interno pode possuir quantos serviços, comandos, validadores, filas e repositórios forem necessários.
+O limite afeta apenas a fachada OpenAPI do GPT. O backend interno pode possuir quantos serviços, comandos, validadores, filas e repositórios forem necessários.
 
 ## 3. Arquitetura canônica
 
@@ -43,64 +34,62 @@ Persistência, filas e integrações
 Regras:
 
 1. REST + OpenAPI é a interface canônica das Actions do GPT.
-2. GraphQL pode ser avaliado futuramente para consultas do frontend, mas não substitui a fachada operacional do GPT.
-3. Regras de negócio não ficam presas aos controllers REST nem a futuros resolvers GraphQL.
-4. Cada Action chama serviços de aplicação específicos.
+2. GraphQL pode ser avaliado futuramente para o frontend, mas não substitui a fachada do GPT.
+3. Regras de negócio não ficam presas a controllers ou resolvers.
+4. Cada Action chama serviços de aplicação tipados.
 5. Endpoints administrativos internos não precisam ser expostos como Actions.
 
 ## 4. Action versus operação de domínio
 
-Uma Action representa um domínio ou fluxo operacional coerente.
-
-Uma operação interna representa uma intenção específica dentro desse domínio.
+Uma Action representa um domínio ou fluxo coerente. Operações específicas usam um enum discriminador dentro da Action.
 
 Exemplo:
 
 ```text
 Action: manageInventory
 Operações:
-- EQUIP
-- UNEQUIP
-- TRANSFER
-- CONSUME
-- LOOT
-- HARVEST
-- DROP
-- DESTROY
-- SPLIT_STACK
-- MERGE_STACK
-- RESERVE
-- RELEASE_RESERVATION
+EQUIP
+UNEQUIP
+TRANSFER
+CONSUME
+LOOT
+HARVEST
+DROP
+DESTROY
+SPLIT_STACK
+MERGE_STACK
+RESERVE
+RELEASE_RESERVATION
 ```
 
-Isso não equivale a uma Action genérica capaz de executar qualquer coisa. Todas as operações de `manageInventory` compartilham o mesmo domínio, invariantes, regras de propriedade, localização, quantidade, peso e atomicidade.
+Isso não equivale a uma Action genérica. Todas as operações compartilham as mesmas invariantes de inventário.
 
 ## 5. Catálogo inicial de Actions
 
-### 5.1 Contexto e conteúdo
+### Contexto e conteúdo
 
 | Nº | `operationId` | Finalidade |
 |---:|---|---|
-| 1 | `loadGame` | Carregar campanha, jogador, sessões ativas e resumo do estado |
-| 2 | `searchContent` | Pesquisar definições, instâncias, versões e conteúdos semelhantes |
+| 1 | `loadGame` | Carregar campanha, jogador, sessões ativas e resumo |
+| 2 | `searchContent` | Pesquisar definições, instâncias, versões e semelhantes |
 | 3 | `getContent` | Obter conteúdo completo por ID, código e versão |
-| 4 | `manageContent` | Criar, revisar, validar, versionar ou migrar conteúdo |
+| 4 | `manageContent` | Criar, validar, revisar, versionar, migrar ou persistir pacotes |
 
-### 5.2 Atores e relações
+### Atores e relações
 
 | Nº | `operationId` | Finalidade |
 |---:|---|---|
-| 5 | `materializeActors` | Materializar um ou vários atores completos |
-| 6 | `manageActor` | Alterar estado, comportamento, facção, controle ou escopo do ator |
+| 5 | `materializeActors` | Validar e materializar um ou vários atores completos |
+| 6 | `manageActor` | Alterar estado, comportamento, facção, controle ou escopo |
 | 7 | `manageRelationships` | Relações, memórias, grupo, recrutamento e domesticação |
 
-### 5.3 Inventário
+### Inventário
 
 | Nº | `operationId` | Finalidade |
 |---:|---|---|
-| 8 | `manageInventory` | Equipar, transferir, consumir, saquear, coletar, reservar ou destruir itens |
+| 8 | `manageInventory` | Equipar, transferir, consumir, saquear, coletar, reservar ou destruir |
 
-### 5.4 Encontros
+### Encontros
 
 | Nº | `operationId` | Finalidade |
 |---:|---|---|
@@ -108,63 +97,87 @@ Isso não equivale a uma Action genérica capaz de executar qualquer coisa. Toda
 | 10 | `checkpointEncounter` | Persistir checkpoint intermediário |
 | 11 | `submitEncounterResolution` | Validar e persistir resolução consolidada |
 
-### 5.5 Comércio
+### Comércio
 
 | Nº | `operationId` | Finalidade |
 |---:|---|---|
-| 12 | `startOrLoadTrade` | Carregar sessão comercial, estoques, saldos e faixas |
-| 13 | `submitTrade` | Persistir compra, venda e negociação consolidadas |
+| 12 | `startOrLoadTrade` | Carregar sessão, estoques, saldos e faixas |
+| 13 | `submitTrade` | Persistir compra, venda e negociação |
 
-### 5.6 Fabricação
-
-| Nº | `operationId` | Finalidade |
-|---:|---|---|
-| 14 | `startOrLoadCraft` | Carregar receita, reservas, ferramentas, oficina e probabilidades |
-| 15 | `submitCraftResolution` | Persistir consumo, qualidade, instância produzida e XP |
-
-### 5.7 Perícias
+### Fabricação
 
 | Nº | `operationId` | Finalidade |
 |---:|---|---|
-| 16 | `startOrLoadSkillSession` | Carregar desafio de perícia com parâmetros completos |
+| 14 | `startOrLoadCraft` | Carregar receita, reservas, oficina e probabilidades |
+| 15 | `submitCraftResolution` | Persistir consumo, qualidade, instância e XP |
+
+### Perícias
+
+| Nº | `operationId` | Finalidade |
+|---:|---|---|
+| 16 | `startOrLoadSkillSession` | Carregar desafio de perícia completo |
 | 17 | `submitSkillResolution` | Validar resultado, custos, consequências e XP |
 
-### 5.8 Sistemas futuros já reservados no catálogo
+### Sistemas futuros reservados
 
 | Nº | `operationId` | Finalidade |
 |---:|---|---|
 | 18 | `manageMission` | Criar, aceitar, atualizar, concluir, falhar ou abandonar missão |
-| 19 | `applyProgression` | Aplicar XP, nível, atributos, perícias, profissões e desbloqueios |
+| 19 | `applyProgression` | Aplicar XP, nível, atributos, perícias e desbloqueios |
 | 20 | `advanceWorldTime` | Descanso, viagem, recuperação e atividades demoradas |
 | 21 | `manageWorldState` | Locais, facções, reputação, crimes, eventos e consequências |
-| 22 | `cancelSession` | Cancelar encontro, comércio, fabricação ou perícia de forma válida |
+| 22 | `cancelSession` | Cancelar sessão de forma válida |
 
-O catálogo é inicial e versionado. Renomear, fundir ou dividir Actions exige análise de compatibilidade com o schema OpenAPI e com as instruções do GPT.
+O catálogo é versionado. Renomear, fundir ou dividir Actions exige análise de compatibilidade.
 
-## 6. Regra para novos sistemas
-
-Ao documentar um novo sistema, seguir esta ordem:
+## 6. Operações de `manageContent`
 
 ```text
-1. verificar se ele pode usar uma Action existente;
-2. adicionar novo enum de operação quando pertencer ao mesmo domínio;
+SEARCH_OR_VALIDATE_EQUIVALENCE
+VALIDATE_CONTENT
+CREATE_DEFINITION
+CREATE_VARIANT
+CREATE_INSTANCE
+REVIEW_CONTENT
+MIGRATE_CONTENT
+VALIDATE_CONTENT_BUNDLE
+PERSIST_CONTENT_BUNDLE
+PROMOTE_CONTENT_BUNDLE
+REVIEW_CONTENT_BUNDLE
+```
+
+As operações em lote seguem `bundles-v0.1` ou versão posterior.
+
+## 7. Operações de `materializeActors`
+
+```text
+VALIDATE_AND_MATERIALIZE
+MATERIALIZE_FROM_VALIDATED_BUNDLE
+MATERIALIZE_GROUP
+LOAD_MATERIALIZATION
+PROMOTE_MATERIALIZED_ACTOR
+```
+
+`materializeActors` e `manageContent` reutilizam o mesmo motor interno de validação de pacotes, resolução de referências e transação.
+
+## 8. Regra para novos sistemas
+
+Antes de criar nova Action:
+
+```text
+1. verificar se uma Action existente atende;
+2. adicionar novo enum quando o domínio for o mesmo;
 3. adicionar perfil de snapshot quando apenas a leitura mudar;
-4. criar nova Action somente quando existir ciclo de vida, segurança,
-   atomicidade ou contrato de erro realmente diferente;
+4. criar nova Action somente com ciclo, segurança, atomicidade
+   ou contrato de erro realmente diferente;
 5. atualizar o orçamento de Actions.
 ```
 
-Uma nova Action exige resposta afirmativa para pelo menos uma destas perguntas:
+Uma nova Action exige justificativa objetiva.
 
-- possui ciclo de sessão próprio?
-- possui transação autoritativa própria?
-- possui permissões ou riscos significativamente diferentes?
-- possui entrada e saída incompatíveis com os domínios existentes?
-- agrupá-la tornaria o schema confuso ou inseguro para o GPT?
+## 9. Envelope comum de solicitação
 
-## 7. Envelope comum de solicitação
-
-Toda mutação persistente deve aceitar, quando aplicável:
+Toda mutação persistente aceita, quando aplicável:
 
 ```json
 {
@@ -178,19 +191,9 @@ Toda mutação persistente deve aceitar, quando aplicável:
 }
 ```
 
-Campos:
+`payload` é discriminado por operação e nunca aceita JSON arbitrário sem schema.
 
-- `operation`: intenção interna permitida pela Action;
-- `requestId`: correlação e auditoria;
-- `idempotencyKey`: evita duplicação por repetição da chamada;
-- `baseStateVersion`: controle de concorrência;
-- `dryRun`: valida sem persistir quando suportado;
-- `context`: campanha, mundo, sessão, ator e demais referências;
-- `payload`: dados tipados da operação selecionada.
-
-`payload` nunca deve ser um JSON arbitrário sem schema por operação.
-
-## 8. Envelope comum de resposta
+## 10. Envelope comum de resposta
 
 ```json
 {
@@ -199,6 +202,7 @@ Campos:
   "previousStateVersion": 15,
   "newStateVersion": 16,
   "result": {},
+  "snapshot": null,
   "snapshotDelta": {},
   "warnings": [],
   "issues": [],
@@ -220,65 +224,218 @@ REJECTED
 CANCELLED
 ```
 
-## 9. Erros acionáveis
+## 11. Validação acumulativa
 
-Um erro precisa informar:
+O backend deve validar todos os problemas independentes detectáveis antes de responder.
 
-- código estável;
-- mensagem legível;
-- domínio e campo afetados;
-- regra violada;
-- valores esperados e recebidos quando seguro;
-- possibilidade de correção;
-- próxima Action e operação sugeridas;
-- parâmetros sugeridos quando possível.
+Não deve:
+
+```text
+validar o primeiro campo
+→ retornar erro
+→ esperar nova chamada
+→ descobrir o segundo erro
+```
+
+Deve:
+
+```text
+validar schema, orçamento, referências, vínculos e prontidão
+→ acumular issues e warnings
+→ retornar uma resposta completa
+```
+
+Dependências bloqueadas podem ser marcadas como `NOT_EVALUATED_DUE_TO_DEPENDENCY`, deixando claro por que não foram avaliadas.
+
+## 12. Erros acionáveis e localizados
+
+Cada problema informa:
+
+```text
+code
+severity
+blocking
+clientRef
+nodeId, quando existente
+domain
+path
+ruleCode
+message
+expected
+received
+difference
+recovery
+```
 
 Exemplo:
 
 ```json
 {
-  "status": "REQUIRES_ACTION",
-  "issues": [
-    {
-      "code": "ITEM_NOT_EQUIPPABLE",
-      "domain": "INVENTORY",
-      "field": "targetSlot",
-      "message": "Uma arma de duas mãos já ocupa MAIN_HAND e OFF_HAND.",
-      "ruleCode": "TWO_HANDED_SLOT_OCCUPANCY"
-    }
-  ],
-  "recoveryActions": [
-    {
-      "operationId": "manageInventory",
-      "operation": "UNEQUIP",
-      "suggestedParameters": {
-        "itemInstanceId": "greatsword-instance"
-      }
-    },
-    {
-      "operationId": "manageInventory",
-      "operation": "CANCEL_EQUIP",
-      "suggestedParameters": {}
-    }
-  ]
+  "code": "PRIMARY_ATTRIBUTE_BUDGET_MISMATCH",
+  "severity": "ERROR",
+  "blocking": true,
+  "clientRef": "actor:bandit-leader",
+  "domain": "ATTRIBUTES",
+  "path": "/nodes/0/data/primaryAttributes",
+  "ruleCode": "PRIMARY_POINTS_BY_LEVEL",
+  "message": "A distribuição não usa o orçamento exigido para o nível 5.",
+  "expected": { "totalPrimaryPoints": 81 },
+  "received": { "totalPrimaryPoints": 79 },
+  "difference": 2,
+  "recovery": {
+    "canRetry": true,
+    "suggestedAction": "REDISTRIBUTE_PRIMARY_ATTRIBUTES"
+  }
 }
 ```
 
-O backend não deve retornar apenas `400`, `invalid request` ou `operation failed` sem orientação suficiente.
+O backend não deve retornar apenas `400`, `invalid request` ou `operation failed`.
 
-## 10. Disponibilidade e prontidão
+## 13. Componentes opcionais
 
-Snapshots e respostas devem informar:
+Ausência de componente não aplicável é válida.
+
+Exemplos:
+
+- ator sem equipamento;
+- criatura sem inventário;
+- espírito sem dinheiro;
+- NPC sem magia;
+- animal sem perícias sociais;
+- comerciante sem perfil de combate.
+
+Se o componente for enviado, deve ser validado integralmente.
+
+O backend distingue:
 
 ```text
-availableActions
-availableOperations
-availableNextOperations
-constraints
-recoveryActions
+OPTIONAL_NOT_PROVIDED
+NOT_APPLICABLE
+REQUIRED_MISSING
+PROVIDED_INVALID
 ```
 
-Antes de iniciar uma sessão complexa, o backend deve indicar:
+## 14. Criação e materialização em lote
+
+Pacotes podem conter:
+
+- definições novas;
+- referências a definições existentes;
+- variantes;
+- instâncias;
+- atores;
+- itens;
+- equipamentos;
+- ações;
+- habilidades;
+- magias;
+- perícias;
+- passivas;
+- drops;
+- relações entre todos os nós.
+
+O GPT usa `clientRef` para referenciar nós antes de receber IDs definitivos.
+
+Modos:
+
+```text
+VALIDATE_ONLY
+MATERIALIZE_TEMPORARY
+PERSIST_IF_VALID
+PERSIST_REQUIRED
+PROMOTE_TEMPORARY
+```
+
+A criação completa de ator usa `ALL_OR_NOTHING` por padrão.
+
+## 15. Reutilização e criação automática
+
+Cada nó declara:
+
+```text
+REUSE_REQUIRED
+REUSE_OR_CREATE
+CREATE_NEW
+CREATE_VARIANT
+INLINE_TEMPORARY
+UPDATE_EXISTING
+REVIEW_EXISTING
+```
+
+O backend:
+
+1. pesquisa conteúdo equivalente;
+2. reutiliza IDs e versões compatíveis;
+3. cria apenas o que falta e está autorizado;
+4. valida todos os vínculos;
+5. devolve `referenceMap` com `CREATED`, `REUSED`, `UPDATED` ou `TEMPORARY`.
+
+O backend não fica bloqueado por um pacote misto contendo conteúdos já cadastrados e conteúdos novos.
+
+## 16. Persistência atômica
+
+Padrão:
+
+```text
+validar tudo
+→ construir plano
+→ abrir transação
+→ criar e vincular
+→ validar estado final
+→ commit
+```
+
+Com erro bloqueante:
+
+```text
+rollback total
+```
+
+Não pode existir:
+
+- ator sem vínculos obrigatórios;
+- item criado sem proprietário quando exigido;
+- equipamento vinculado a slot inválido;
+- ação vinculada sem definição válida;
+- materiais consumidos sem resultado correspondente.
+
+## 17. Materialização temporária
+
+Conteúdo temporário pode:
+
+- participar de combate;
+- ser avaliado;
+- consumir recursos;
+- sofrer dano e condições;
+- produzir eventos;
+- ser promovido posteriormente.
+
+Ele não precisa poluir o catálogo permanente.
+
+A resposta informa:
+
+```text
+materializationId
+materializationVersion
+referenceMap
+readiness
+snapshot
+promotionPolicy
+```
+
+## 18. Perfis de prontidão
+
+```text
+ACTOR_COMPLETE
+COMBAT_READY
+TRADE_READY
+CRAFT_READY
+EVALUATION_READY
+COMPANION_READY
+PERSISTENCE_READY
+```
+
+Antes de iniciar uma sessão, o backend retorna:
 
 ```text
 READY
@@ -288,21 +445,25 @@ REQUIRES_MATERIALIZATION
 REQUIRES_REVIEW
 ```
 
-Exemplo: um combate não pode iniciar como `READY` se uma arma usada não possui perfil de ataque completo.
+Um combate não pode começar como `READY` se arma, ação, custo, munição ou ficha estiverem incompletos.
 
-## 11. Idempotência e concorrência
+## 19. Identidade e referências
 
-Toda operação que possa criar ou transferir valor precisa ser idempotente:
+Usar:
 
-- dinheiro;
-- itens;
-- XP;
-- recompensas;
-- drops;
-- fabricação;
-- progressão;
-- relações persistentes;
-- conclusão de missão.
+```text
+UUID → identidade técnica
+code → referência legível de definição
+version → versão utilizada
+clientRef → referência local no pacote
+bigint/sequence → ordenação e números amigáveis
+```
+
+Relacionamentos persistentes usam UUID e chaves estrangeiras. `clientRef` é convertido por `referenceMap`.
+
+## 20. Idempotência e concorrência
+
+Toda operação que cria ou transfere valor é idempotente.
 
 Quando:
 
@@ -310,13 +471,17 @@ Quando:
 baseStateVersion != currentStateVersion
 ```
 
-O backend retorna `CONFLICT`, informa as versões e oferece recuperação por recarga, reaplicação segura ou cancelamento.
+retornar `CONFLICT` com opções de recarga, reaplicação segura ou cancelamento.
 
-Repetir a mesma `idempotencyKey` deve devolver o mesmo resultado autoritativo, não executar novamente a consequência.
+Repetir a mesma `idempotencyKey` e o mesmo hash retorna o resultado anterior. Reutilizar a chave com payload diferente retorna:
 
-## 12. Snapshots, perfis e deltas
+```text
+IDEMPOTENCY_PAYLOAD_MISMATCH
+```
 
-Para reduzir tokens e tráfego, usar perfis de snapshot:
+## 21. Snapshots, perfis e deltas
+
+Perfis:
 
 ```text
 GAME_SUMMARY
@@ -331,7 +496,7 @@ MISSION
 WORLD
 ```
 
-Depois do carregamento completo, respostas podem usar:
+Depois do carregamento completo, usar:
 
 ```text
 snapshotDelta
@@ -340,24 +505,9 @@ invalidatedReferences
 requiredReloads
 ```
 
-Definições já carregadas podem ser referenciadas por código e versão sem repetir todo o conteúdo, desde que o GPT possua a versão correta no contexto da sessão.
+## 22. Checkpoint, retomada e cancelamento
 
-## 13. Operações em lote
-
-Preferir lote quando as operações compartilham a mesma transação ou contexto:
-
-- materializar grupo de atores;
-- transferir vários itens;
-- comprar e vender vários itens;
-- aplicar consequências de encontro;
-- criar várias instâncias em fabricação em lote;
-- atualizar vários objetivos da mesma missão.
-
-O lote deve retornar resultado individual por item ou entidade e garantir política explícita de atomicidade total ou parcial.
-
-## 14. Checkpoint, retomada e cancelamento
-
-Sessões longas devem suportar:
+Sessões longas suportam:
 
 - carregar;
 - criar;
@@ -365,14 +515,14 @@ Sessões longas devem suportar:
 - continuar;
 - cancelar;
 - detectar conflito;
-- recuperar do último estado válido;
+- recuperar último estado válido;
 - concluir de forma idempotente.
 
-`cancelSession` recebe `sessionType` e aplica a política correspondente sem exigir uma Action de cancelamento para cada domínio.
+`cancelSession` usa `sessionType`, evitando uma Action de cancelamento por domínio.
 
-## 15. Segurança de mutações
+## 23. Segurança de mutações
 
-Não expor ao GPT:
+Não expor:
 
 ```text
 executeAnything
@@ -382,53 +532,40 @@ patchDatabaseRecord
 runArbitraryCommand
 ```
 
-Também não expor mutações genéricas que aceitem qualquer JSON.
+Mutações representam comandos de domínio e possuem schema discriminado.
 
-As mutações devem representar comandos de domínio, preservar invariantes e possuir schema discriminado por `operation`.
-
-## 16. Política para GraphQL
-
-GraphQL pode ser usado futuramente pelo frontend para consultas flexíveis, desde que reutilize os mesmos serviços de aplicação e regras de domínio.
-
-O GPT continua utilizando REST + OpenAPI porque:
-
-- cada `operationId` possui finalidade clara;
-- os inputs e outputs são previsíveis;
-- os erros podem orientar a próxima operação;
-- mutações ficam delimitadas;
-- o GPT não precisa construir consultas livres;
-- o limite é administrado por agrupamento de domínio.
-
-GraphQL não deve ser adotado apenas para esconder várias operações atrás de uma Action genérica.
-
-## 17. Requisitos para o Codex
+## 24. Requisitos para o Codex
 
 A implementação deve possuir:
 
-1. módulo de `action-gateway` separado dos serviços de domínio;
-2. OpenAPI com `operationId` estáveis e únicos;
-3. contador automatizado que falhe quando houver mais de 30 Actions expostas;
-4. teste que mantenha o alvo planejado em até 22, salvo decisão versionada;
-5. schemas discriminados por operação;
-6. envelopes comuns de solicitação e resposta;
-7. idempotência nas mutações críticas;
-8. controle por `stateVersion`;
-9. erros acionáveis e testados;
-10. exemplos completos por Action;
-11. métricas de uso, falhas, recuperação e tamanho de resposta;
-12. serviços internos reutilizáveis por GPT, frontend e administração.
+1. módulo `action-gateway` separado;
+2. OpenAPI com `operationId` estáveis;
+3. teste que falhe acima de 30 Actions;
+4. teste que mantenha alvo em até 22 sem decisão versionada;
+5. schemas discriminados por operação e `nodeType`;
+6. validação acumulativa;
+7. resolução de `clientRef`;
+8. grafo de dependências e persistência ordenada;
+9. UUIDs, códigos e versões;
+10. `referenceMap` no retorno;
+11. idempotência e `stateVersion`;
+12. transação e rollback de pacotes;
+13. materialização temporária e promoção;
+14. perfis de prontidão;
+15. erros acionáveis testados;
+16. exemplos completos de sucesso e rejeição;
+17. métricas de uso, recuperação e tamanho de payload;
+18. serviços reutilizáveis pelo GPT e frontend.
 
-## 18. Pendências
+## 25. Pendências
 
-- validar o limite no editor do GPT e no schema final;
-- revisar se 22 Actions são suficientes após os próximos sistemas;
-- definir autenticação e autorização por Action;
-- definir limites de payload e paginação;
-- definir política de timeout e repetição;
-- definir atomicidade de operações em lote;
-- definir retenção de idempotência;
-- definir códigos de erro por domínio;
-- definir formato final de `snapshotDelta`;
-- criar exemplos OpenAPI completos;
-- testar escolha de Action pelo GPT em cenários ambíguos;
-- testar recuperação automática após erros.
+- autenticação e autorização por Action;
+- limites de payload e paginação;
+- timeout e repetição;
+- retenção de idempotência;
+- catálogo final de `nodeType` e `relationType`;
+- duração de materializações temporárias;
+- política de promoção de UUIDs temporários;
+- formato final de `snapshotDelta`;
+- exemplos OpenAPI completos;
+- testes de correção automática após múltiplos erros.

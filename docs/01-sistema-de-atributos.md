@@ -1,6 +1,6 @@
 # Sistema de Atributos
 
-**Versão da proposta:** `attributes-v0.2`  
+**Versão da proposta:** `attributes-v0.3`  
 **Status:** em validação  
 **Escopo:** personagens, NPCs, criaturas e animais
 
@@ -8,15 +8,15 @@
 
 Definir uma estrutura única de atributos que possa ser carregada pelo GPT, modificada por equipamentos, habilidades e condições, validada pelo backend e futuramente exibida no frontend.
 
-Este documento define os valores da ficha. A comparação entre eles e as rolagens pertence ao sistema de combate.
+Este documento define os valores da ficha. Comparações, rolagens, tempo, movimento e resolução pertencem aos sistemas de combate e ações.
 
 ## 2. Atributos primários
 
 | Nome | Código | Função principal |
 |---|---|---|
 | Força | `strength` | poder físico, carga, vigor e resistência estrutural |
-| Destreza | `dexterity` | precisão física, esquiva, iniciativa, crítico e furtividade |
-| Inteligência | `intelligence` | poder mágico, mana, precisão mágica e resistência mental |
+| Destreza | `dexterity` | precisão física, esquiva, iniciativa, velocidade física, crítico e furtividade |
+| Inteligência | `intelligence` | poder mágico, mana, precisão mágica, velocidade de conjuração e resistência mental |
 | Vitalidade | `vitality` | vida, vigor e capacidade de suportar dano e condições físicas |
 
 ### 2.1 Criação inicial
@@ -63,9 +63,9 @@ Personagens de jogador seguem esse orçamento. NPCs e criaturas utilizam a mesma
 
 Valores atuais persistidos separadamente:
 
-- `currentHealth`
-- `currentMana`
-- `currentStamina`
+- `currentHealth`;
+- `currentMana`;
+- `currentStamina`.
 
 ### 3.2 Ofensivos
 
@@ -93,15 +93,19 @@ A Esquiva é um **rating de oposição**, não uma porcentagem pronta e não ger
 
 A Defesa Crítica é uma base ou modificador para a chance de anulação completa de um ataque que já acertou.
 
-### 3.4 Utilitários
+### 3.4 Tempo, movimento e utilidade
 
-| Nome | Código |
-|---|---|
-| Iniciativa | `initiative` |
-| Velocidade | `speed` |
-| Capacidade de Carga | `carryCapacity` |
-| Percepção | `perception` |
-| Furtividade | `stealth` |
+| Nome | Código | Unidade ou função |
+|---|---|---|
+| Iniciativa | `initiative` | disponibilidade inicial e desempates |
+| Velocidade de Movimento | `movementSpeed` | metros por segundo |
+| Velocidade de Ação Física | `physicalActionSpeed` | rating de redução temporal |
+| Velocidade de Conjuração | `castingSpeed` | rating de redução temporal |
+| Capacidade de Carga | `carryCapacity` | peso sem penalidade |
+| Percepção | `perception` | detecção e leitura do ambiente |
+| Furtividade | `stealth` | ocultação e movimentação discreta |
+
+O antigo atributo genérico `speed` deixa de ser utilizado. Movimento, ações físicas e conjuração possuem escalas separadas.
 
 ## 4. Fórmulas-base propostas
 
@@ -203,16 +207,52 @@ Inteligência + arredondar_para_baixo(Vitalidade ÷ 2)
 
 As resistências são usadas contra condições e efeitos. Elas não substituem DEF Física ou DEF Mágica na mitigação de dano.
 
-### 4.7 Utilidade
+### 4.7 Tempo e movimento
+
+#### Iniciativa
 
 ```text
 Iniciativa Base = Destreza
 ```
 
+A Iniciativa determina principalmente a disponibilidade inicial. Depois do início do encontro, os custos temporais das ações e os valores `nextReadyAt` controlam a ordem.
+
+#### Velocidade de Movimento
+
 ```text
-Velocidade Base =
-5 + arredondar_para_baixo(Destreza ÷ 20)
+Velocidade de Movimento Base =
+4 + arredondar_para_baixo(Destreza ÷ 25)
 ```
+
+Unidade:
+
+```text
+metros por segundo
+```
+
+A carga, o terreno e os equipamentos podem modificar o valor final.
+
+#### Velocidade de Ação Física
+
+```text
+Velocidade de Ação Física Base =
+arredondar_para_baixo(Destreza ÷ 5)
+```
+
+É um rating usado para reduzir o tempo de ataques físicos, preparação de armas, técnicas corporais, consumíveis e outras ações físicas compatíveis.
+
+#### Velocidade de Conjuração
+
+```text
+Velocidade de Conjuração Base =
+arredondar_para_baixo(Inteligência ÷ 5)
+```
+
+É um rating usado para reduzir preparação e recuperação de magias compatíveis.
+
+A fórmula de redução temporal e os tempos mínimos pertencem ao sistema de ações.
+
+### 4.8 Utilidade
 
 ```text
 Capacidade de Carga Base =
@@ -261,7 +301,8 @@ Um bônus em atributo primário recalcula todos os secundários dependentes. Um 
 | Mana e Vigor Máximos | mínimo `0` |
 | ATKs, DEFs, Precisões e Resistências | mínimo `0` |
 | Esquiva e Defesa Crítica | mínimo `0` |
-| Velocidade | mínimo `1` |
+| Velocidade de Movimento | mínimo `0,5 m/s` |
+| Velocidades de Ação e Conjuração | mínimo `0` |
 | Chance de Crítico | `0%` a `95%` |
 | Dano Crítico | mínimo `100%` |
 
@@ -294,7 +335,7 @@ O exemplo abaixo usa todos os pontos previstos para um personagem nível 5:
 
 ```json
 {
-  "ruleVersion": "attributes-v0.2",
+  "ruleVersion": "attributes-v0.3",
   "level": 5,
   "unspentPrimaryPoints": 0,
   "primaryAttributes": {
@@ -322,7 +363,9 @@ O exemplo abaixo usa todos os pontos previstos para um personagem nível 5:
     "physicalResistance": 38,
     "mentalResistance": 23,
     "initiative": 15,
-    "speed": 5,
+    "movementSpeed": 4,
+    "physicalActionSpeed": 3,
+    "castingSpeed": 2,
     "carryCapacity": 135,
     "perception": 12,
     "stealth": 15
@@ -335,3 +378,11 @@ O exemplo abaixo usa todos os pontos previstos para um personagem nível 5:
 O backend deve persistir os primários, recursos atuais, pontos não distribuídos e versões de regra; recalcular os secundários; validar limites; e retornar a composição dos valores.
 
 O GPT deve carregar a ficha antes de resolver ações, utilizar os valores finais retornados, não inventar atributos e registrar qualquer alteração mecânica na resolução enviada ao backend.
+
+## 10. Pendências
+
+- calibrar as três fórmulas de velocidade nos níveis 1, 5, 10, 20 e 50;
+- validar efeitos de carga e armadura sobre movimento;
+- validar retorno decrescente de velocidade sobre tempos de ação;
+- confirmar limites de investimento em primários;
+- confirmar fórmulas definitivas de ATK, Vida, Mana e Vigor.

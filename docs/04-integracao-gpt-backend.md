@@ -1,134 +1,83 @@
 # Integração entre GPT, Backend e Frontend
 
-**Versão da proposta:** `integration-v0.8`  
+**Versão da proposta:** `integration-v0.9`  
 **Status:** em validação
 
 ## 1. Objetivo
 
 Permitir que o GPT conduza interações, crie e revise conteúdos e resolva sessões localmente, enquanto o backend mantém autoridade sobre dados persistidos, regras versionadas, validações e consequências permanentes.
 
-A integração deve funcionar dentro do limite de 30 Actions do GPT sem expor um endpoint para cada microação.
+A integração deve:
+
+- funcionar dentro do limite de 30 Actions;
+- aceitar criação e validação em lote;
+- reutilizar conteúdo existente;
+- criar conteúdo faltante quando autorizado;
+- materializar conteúdo temporário;
+- persistir pacotes completos atomicamente;
+- devolver erros completos e corrigíveis;
+- impedir estados parciais ou incoerentes.
 
 ## 2. Regra central
 
 ```text
-Backend = autoridade de dados, regras, validação e persistência.
-GPT = condutor, criador, revisor e resolvedor local dentro das regras carregadas.
+Backend = autoridade de dados, cálculo, validação e persistência.
+GPT = condutor, criador, revisor e resolvedor dentro das regras carregadas.
 Frontend = visualização e administração usando o mesmo domínio.
 ```
 
-Conteúdos não são imutáveis. O GPT pode propor correção, balanceamento, evolução e migração. O backend valida antes de persistir.
+Conteúdos não são imutáveis. O GPT pode propor correções, balanceamentos, evoluções e migrações. O backend valida antes de persistir.
 
 Depois que uma sessão começa, o GPT não acrescenta retroativamente recursos ausentes do snapshot.
 
 ## 3. Action Gateway
 
-A interface do GPT utiliza:
-
-```text
-REST + OpenAPI
-```
-
-Arquitetura:
-
 ```text
 GPT
-↓
-Action Gateway com no máximo 30 operationIds
+↓ REST + OpenAPI
+Action Gateway
 ↓
 Serviços de aplicação e domínio
 ↓
-Persistência e integrações
+Persistência, sessões temporárias e integrações
 ```
 
-Regras:
+O gateway expõe no máximo 30 `operationId`s. Microoperações usam enums tipados dentro de Actions de domínio.
 
-- alvo inicial de 22 Actions expostas;
-- 8 vagas reservadas;
-- operações relacionadas são agrupadas por domínio;
-- serviços internos não contam como Actions;
-- endpoints administrativos não precisam ser expostos ao GPT;
-- GraphQL pode ser avaliado para o frontend, não como substituto das Actions do GPT;
-- não expor comandos arbitrários ou mutações genéricas sem schema.
-
-O contrato completo está em `operations-v0.1`.
-
-## 4. Responsabilidades
-
-### GPT
+## 4. Responsabilidades do GPT
 
 - interpretar a intenção do jogador;
-- escolher a Action e a operação interna compatíveis;
-- carregar fichas, definições, variantes, instâncias, ações, perícias, receitas e estoques;
-- usar regras e parâmetros versionados;
-- manter estado local;
-- calcular resultados permitidos;
-- registrar rolagens, operações e decisões;
-- reutilizar definições existentes;
-- não criar cadastro novo apenas por mudança de qualidade;
-- propor variante somente quando houver diferença real;
-- usar somente itens, quantidades, cargas, dinheiro e recompensas existentes;
-- avaliar sugestões do jogador;
-- seguir `recoveryActions` e `availableNextOperations` retornados;
-- enviar histórico e resultado consolidado.
+- pesquisar definições, variantes e conteúdos semelhantes;
+- reutilizar códigos, IDs e versões existentes;
+- montar pacotes com nós, relações e `clientRef`;
+- indicar se deseja apenas validar, materializar temporariamente ou persistir;
+- enviar somente componentes aplicáveis;
+- fornecer definições completas quando criar conteúdo novo;
+- ler todos os `issues` e `warnings`;
+- corrigir propostas conforme regras e erros acionáveis;
+- manter estado local de sessões;
+- usar apenas recursos presentes no snapshot;
+- enviar resultados consolidados e logs estruturados;
+- solicitar promoção quando um conteúdo temporário se tornar relevante.
 
-### Backend
+## 5. Responsabilidades do backend
 
-- persistir definições, variantes, instâncias, atores, pilhas, localizações, propriedade e sessões;
+- persistir definições, variantes, instâncias, atores, itens e vínculos;
+- manter materializações temporárias versionadas;
 - localizar conteúdo equivalente e impedir duplicação semântica;
-- calcular atributos, orçamento, preços, qualidade e pontuações efetivas;
-- materializar atores, inventários, contêineres e drops;
-- gerar snapshots completos ou deltas;
-- controlar `stateVersion` e versões de regras;
-- validar e reproduzir resoluções;
-- controlar reservas;
-- aplicar consumo, criação, XP, saldos, propriedade e localização atomicamente;
-- congelar valores resolvidos nas instâncias;
-- preservar IDs, versões, vínculos, origem e histórico;
-- garantir idempotência nas mutações críticas;
-- retornar erros acionáveis com próxima operação sugerida;
-- manter o schema exposto dentro do orçamento de Actions.
+- calcular atributos, orçamentos, preços, qualidade e pontuações;
+- validar componentes opcionais somente quando aplicáveis ou enviados;
+- validar todos os problemas detectáveis na mesma resposta;
+- resolver `clientRef`, códigos, versões e UUIDs;
+- construir grafo de dependências;
+- produzir plano de persistência;
+- aplicar transações atômicas e rollback;
+- gerar snapshots completos e deltas;
+- controlar `stateVersion`, idempotência e versões de regras;
+- retornar `referenceMap`, erros acionáveis e próximas operações;
+- preservar IDs, vínculos, origem, versões e histórico.
 
-### Frontend
-
-- exibir catálogo de definições sem duplicação por qualidade;
-- agrupar instâncias por definição, variante e qualidade;
-- mostrar valores resolvidos, condição, durabilidade e proveniência;
-- acompanhar combate, saque, comércio e fabricação;
-- permitir revisão administrativa com os mesmos serviços de domínio;
-- poder usar REST ou GraphQL futuramente sem duplicar regras.
-
-## 5. Padrão de sessão
-
-```text
-1. GPT solicita criação ou carregamento.
-2. Backend retorna snapshot completo e versionado.
-3. GPT conduz escolhas e resoluções localmente.
-4. GPT mantém log estruturado.
-5. Checkpoints podem ser enviados.
-6. GPT envia resultado consolidado.
-7. Backend recalcula e valida.
-8. Backend persiste o resultado autoritativo.
-9. GPT apresenta o retorno final.
-```
-
-Campos comuns:
-
-```text
-sessionId
-stateVersion
-ruleVersions
-lifecycleStatus
-snapshot
-snapshotDelta
-resolutionPolicy
-availableOperations
-availableNextOperations
-constraints
-recoveryActions
-```
-
-## 6. Versões
+## 6. Versões de regras
 
 ```json
 {
@@ -142,17 +91,388 @@ recoveryActions
     "crafting": "crafting-v0.2",
     "actors": "actors-v0.1",
     "inventory": "inventory-v0.2",
-    "operations": "operations-v0.1",
-    "integration": "integration-v0.8"
+    "operations": "operations-v0.2",
+    "bundles": "bundles-v0.1",
+    "integration": "integration-v0.9"
   }
 }
 ```
 
-Toda resolução, criação ou revisão persistente informa as versões utilizadas.
+Toda resolução, materialização, criação, revisão ou persistência informa as versões utilizadas.
 
-## 7. Catálogo resumido de Actions
+## 7. Modos de criação
 
-O catálogo inicial possui 22 Actions:
+```text
+VALIDATE_ONLY
+MATERIALIZE_TEMPORARY
+PERSIST_IF_VALID
+PERSIST_REQUIRED
+PROMOTE_TEMPORARY
+```
+
+### Validar
+
+O backend resolve referências, calcula valores, valida regras e devolve problemas sem criar estado utilizável.
+
+### Materializar temporariamente
+
+O backend cria um snapshot utilizável em combate, Avaliação ou outra interação sem cadastrar tudo como conteúdo canônico.
+
+### Persistir
+
+O backend valida o pacote inteiro e, somente quando aprovado, cria e vincula tudo em uma transação.
+
+### Promover
+
+O backend transforma uma materialização temporária relevante em conteúdo persistente, preservando identidade e histórico quando possível.
+
+## 8. Pacote completo
+
+Um pacote pode conter:
+
+```text
+ator
+atributos
+recursos
+perícias
+proficiências
+habilidades
+magias
+passivas
+equipamentos
+itens
+inventário
+dinheiro
+drops
+comportamento
+relações
+vínculos
+```
+
+Nem todos os componentes são obrigatórios para todos os atores.
+
+Exemplos válidos:
+
+- animal sem equipamento ou dinheiro;
+- espírito sem inventário físico;
+- NPC sem magia;
+- comerciante sem perfil de combate;
+- monstro com ações e drops, mas sem perícias sociais.
+
+Se um componente estiver presente, deve passar integralmente pelas regras do domínio correspondente.
+
+## 9. Reutilização e criação
+
+Cada nó informa uma estratégia:
+
+```text
+REUSE_REQUIRED
+REUSE_OR_CREATE
+CREATE_NEW
+CREATE_VARIANT
+INLINE_TEMPORARY
+UPDATE_EXISTING
+REVIEW_EXISTING
+```
+
+O backend pode receber no mesmo pacote:
+
+- referências a conteúdos existentes;
+- novas definições;
+- novas instâncias;
+- relações entre ambos.
+
+A resposta informa por `clientRef`:
+
+```text
+CREATED
+REUSED
+UPDATED
+TEMPORARY
+REVIEW_REQUIRED
+```
+
+## 10. Validação acumulativa
+
+A validação ocorre por camadas:
+
+```text
+schema
+→ referências
+→ aplicabilidade
+→ orçamentos
+→ valores derivados
+→ regras de domínio
+→ vínculos cruzados
+→ perfis de prontidão
+→ plano de persistência
+```
+
+O backend deve devolver todos os erros independentes já detectáveis.
+
+Exemplo:
+
+```json
+{
+  "status": "REQUIRES_REVIEW",
+  "issues": [
+    {
+      "clientRef": "actor:bandit-leader",
+      "code": "PRIMARY_ATTRIBUTE_BUDGET_MISMATCH",
+      "path": "/nodes/0/data/primaryAttributes",
+      "expected": { "totalPrimaryPoints": 81 },
+      "received": { "totalPrimaryPoints": 79 }
+    },
+    {
+      "clientRef": "action:flame-slash",
+      "code": "ACTION_COST_MISSING",
+      "path": "/nodes/4/data/resourceCosts"
+    }
+  ]
+}
+```
+
+## 11. Identidade
+
+```text
+UUID → identidade técnica
+code → definição legível
+version → versão utilizada
+clientRef → referência local no pacote
+sequence → ordenação ou número amigável
+```
+
+Relações persistentes usam UUID e chaves estrangeiras. O backend devolve um `referenceMap` convertendo cada `clientRef`.
+
+## 12. Atomicidade
+
+Criação de ator completo, grupo, materialização de combate e promoção usam por padrão:
+
+```text
+ALL_OR_NOTHING
+```
+
+Fluxo:
+
+```text
+validar tudo
+→ construir plano
+→ abrir transação
+→ criar e vincular
+→ validar estado final
+→ commit
+```
+
+Com erro bloqueante:
+
+```text
+rollback total
+```
+
+## 13. Materialização de atores
+
+```text
+avistamento mínimo
+→ interação provável
+→ GPT monta ou referencia pacote
+→ backend valida
+→ reutiliza definições
+→ cria conteúdo temporário faltante
+→ retorna snapshot e prontidão
+```
+
+A materialização pode ser anônima e temporária.
+
+Se o ator se tornar relevante:
+
+```text
+materialização temporária
+→ PROMOTE_TEMPORARY
+→ persistência sem duplicação
+```
+
+## 14. Perfis de prontidão
+
+```text
+ACTOR_COMPLETE
+COMBAT_READY
+TRADE_READY
+CRAFT_READY
+EVALUATION_READY
+COMPANION_READY
+PERSISTENCE_READY
+```
+
+Estados:
+
+```text
+READY
+INCOMPLETE
+INVALID
+REQUIRES_MATERIALIZATION
+REQUIRES_REVIEW
+```
+
+Um ator pode estar completo para diálogo e não estar pronto para combate.
+
+`COMBAT_READY` exige, quando aplicável:
+
+- atributos e recursos válidos;
+- ações completas;
+- custos declarados;
+- armas e perfis de ataque válidos;
+- equipamentos em slots permitidos;
+- munição, consumíveis e cargas existentes;
+- inventário materializado;
+- facção e controle definidos.
+
+## 15. Atores e componentes opcionais
+
+O backend distingue:
+
+```text
+OPTIONAL_NOT_PROVIDED
+NOT_APPLICABLE
+REQUIRED_MISSING
+PROVIDED_INVALID
+```
+
+Não deve exigir magia, equipamento, perícia ou inventário de atores aos quais esses componentes não se aplicam.
+
+Também não deve omitir validação quando o GPT enviar esses componentes.
+
+## 16. Identidade de item no snapshot
+
+Todo item materializado informa:
+
+```text
+definitionId
+definitionCode
+definitionVersion
+familyCode
+variantCode
+itemInstanceId
+quality
+resolvedPowerBudget
+resolvedModifiers
+resolvedBaseBuyPrice
+resolvedBaseSellPrice
+condition
+durability
+ruleVersions
+```
+
+Qualidade não cria definição duplicada.
+
+## 17. Combate
+
+O snapshot contém:
+
+- participantes materializados;
+- atributos e recursos;
+- posições e linha do tempo;
+- ações disponíveis;
+- equipamentos e instâncias relevantes;
+- munições, consumíveis, cargas e durabilidade;
+- condições e recargas;
+- política de rolagens.
+
+O backend valida existência, consumo, alcance, tempo, rolagens, dano, condições e resultado.
+
+Item consumido ou destruído não reaparece no saque.
+
+## 18. Inventário e saque
+
+O backend valida:
+
+- existência e quantidade;
+- propriedade e localização;
+- compatibilidade de pilha;
+- peso e capacidade;
+- slots e requisitos;
+- vínculos e reservas;
+- ausência de duplicação.
+
+Pacotes de ator podem criar e vincular inventário e equipamentos na mesma transação.
+
+## 19. Comércio
+
+O snapshot comercial contém:
+
+- instâncias e pilhas;
+- qualidade e condição;
+- preços resolvidos;
+- saldos;
+- faixas de negociação;
+- perícias, passivas e relação;
+- reservas.
+
+A transação altera propriedade e saldo atomicamente.
+
+## 20. Fabricação
+
+O snapshot contém:
+
+- receita;
+- definição e variante de saída;
+- materiais e ferramentas reservados;
+- perícia e profissão;
+- chance de sucesso;
+- limiares e teto de qualidade;
+- perfil de distribuição;
+- versões.
+
+Cada sucesso cria uma instância, não uma definição por qualidade.
+
+## 21. Criação e revisão de conteúdo
+
+Antes de criar:
+
+```text
+searchContent
+→ localizar equivalentes
+→ manageContent VALIDATE_CONTENT_BUNDLE
+→ corrigir problemas
+→ PERSIST_CONTENT_BUNDLE ou MATERIALIZE_TEMPORARY
+```
+
+Revisões mantêm ID e código quando possível, criam nova versão, preservam vínculos e não recalculam eventos históricos.
+
+## 22. Erros e recuperação
+
+Cada erro informa:
+
+```text
+code
+severity
+blocking
+clientRef
+domain
+path
+ruleCode
+message
+expected
+received
+recoveryActions
+```
+
+O backend deve sugerir a próxima Action e operação quando possível.
+
+## 23. Idempotência e concorrência
+
+Toda operação crítica usa:
+
+```text
+requestId
+idempotencyKey
+baseStateVersion
+```
+
+Repetição idêntica devolve o mesmo resultado. Conteúdo diferente com a mesma chave retorna `IDEMPOTENCY_PAYLOAD_MISMATCH`.
+
+Conflito de versão retorna `CONFLICT` com recarga, reaplicação segura ou cancelamento.
+
+## 24. Operações conceituais
 
 ```text
 loadGame
@@ -179,346 +499,22 @@ manageWorldState
 cancelSession
 ```
 
-Novos sistemas devem reutilizar uma Action existente sempre que pertencerem ao mesmo domínio e às mesmas invariantes.
-
-## 8. Envelope operacional comum
-
-Solicitação persistente:
-
-```json
-{
-  "operation": "ENUM_EXPLICITO",
-  "requestId": "request-id",
-  "idempotencyKey": "idempotency-key",
-  "baseStateVersion": 15,
-  "dryRun": false,
-  "context": {},
-  "payload": {}
-}
-```
-
-Resposta:
-
-```json
-{
-  "status": "SUCCESS",
-  "requestId": "request-id",
-  "previousStateVersion": 15,
-  "newStateVersion": 16,
-  "result": {},
-  "snapshotDelta": {},
-  "warnings": [],
-  "issues": [],
-  "recoveryActions": [],
-  "availableNextOperations": []
-}
-```
-
-`payload` é discriminado por `operation`; não é um JSON arbitrário.
-
-## 9. Prontidão e recuperação
-
-Antes de uma sessão complexa, o backend informa:
-
-```text
-READY
-INCOMPLETE
-INVALID
-REQUIRES_MATERIALIZATION
-REQUIRES_REVIEW
-```
-
-Status de operação:
-
-```text
-SUCCESS
-PARTIAL_SUCCESS
-REQUIRES_ACTION
-REQUIRES_MATERIALIZATION
-REQUIRES_REVIEW
-CONFLICT
-REJECTED
-CANCELLED
-```
-
-Erros precisam informar código, campo, regra, mensagem e correções possíveis.
-
-Exemplo:
-
-```json
-{
-  "status": "REQUIRES_ACTION",
-  "issues": [
-    {
-      "code": "ITEM_NOT_EQUIPPABLE",
-      "field": "targetSlot",
-      "message": "Uma arma de duas mãos já ocupa os dois slots."
-    }
-  ],
-  "recoveryActions": [
-    {
-      "operationId": "manageInventory",
-      "operation": "UNEQUIP",
-      "suggestedParameters": {
-        "itemInstanceId": "greatsword-instance"
-      }
-    }
-  ]
-}
-```
-
-## 10. Idempotência e concorrência
-
-Mutações que criam ou transferem valor usam `idempotencyKey`:
-
-- dinheiro;
-- itens;
-- XP;
-- drops;
-- recompensas;
-- fabricação;
-- progressão;
-- missões;
-- relações persistentes.
-
-Quando:
-
-```text
-baseStateVersion != currentStateVersion
-```
-
-O backend retorna `CONFLICT` com versões e opções de recarga, reaplicação segura ou cancelamento.
-
-## 11. Identidade de item no snapshot
-
-Todo item materializado deve permitir distinguir:
-
-```text
-definitionCode
-definitionVersion
-familyCode
-variantCode
-itemInstanceId
-quality
-resolvedPowerBudget
-resolvedModifiers
-resolvedBaseBuyPrice
-resolvedBaseSellPrice
-condition
-durability
-ruleVersions
-```
-
-Qualidade sem `itemInstanceId` representa apenas simulação ou prévia, nunca nova definição automática.
-
-## 12. Criação de instância
-
-```text
-GPT escolhe definição ou receita
-→ backend localiza definição e variante
-→ backend impede duplicação de cadastro
-→ sessão resolve sucesso e qualidade
-→ backend calcula orçamento e valores finais
-→ backend cria instância
-→ valores resolvidos são congelados
-```
-
-Exemplo:
-
-```json
-{
-  "operation": "CREATE_ITEM_INSTANCE",
-  "definitionCode": "elven-dagger",
-  "definitionVersion": 1,
-  "variantCode": "BASE",
-  "source": {
-    "type": "CRAFT_SESSION",
-    "referenceId": "craft-session-id"
-  }
-}
-```
-
-## 13. Prevenção de duplicação semântica
-
-Antes de criar definição ou variante, o backend pesquisa por:
-
-- código;
-- família;
-- nome normalizado;
-- categoria;
-- material;
-- função mecânica;
-- ações e passivas;
-- tags;
-- receita e distribuição.
-
-Possíveis retornos:
-
-```text
-USE_EXISTING_DEFINITION
-USE_EXISTING_VARIANT
-CREATE_NEW_VARIANT
-CREATE_NEW_DEFINITION
-REVIEW_REQUIRED
-```
-
-Mudança somente de qualidade sempre reutiliza definição ou variante existente.
-
-## 14. Materialização de atores
-
-```text
-avistamento mínimo
-→ interação provável
-→ GPT usa materializeActors
-→ backend carrega definições
-→ cria ator, equipamentos e inventário completos
-→ congela snapshot
-```
-
-Itens do ator são instâncias vinculadas a definições existentes, com qualidade e valores resolvidos.
-
-## 15. Combate
-
-O snapshot contém:
-
-- participantes materializados;
-- atributos e recursos;
-- posições e linha do tempo;
-- ações disponíveis;
-- equipamentos e instâncias relevantes;
-- munições, consumíveis, cargas e durabilidade;
-- condições e recargas;
-- política de rolagens.
-
-O backend valida existência do item, consumo, alcance, tempo, rolagens, dano e resultado.
-
-Item consumido ou destruído não reaparece no saque.
-
-## 16. Inventário e saque
-
-O domínio usa `manageInventory` com operações discriminadas como:
-
-```text
-EQUIP
-UNEQUIP
-TRANSFER
-CONSUME
-LOOT
-HARVEST
-DROP
-DESTROY
-SPLIT_STACK
-MERGE_STACK
-RESERVE
-RELEASE_RESERVATION
-```
-
-O backend valida existência, quantidade, propriedade, localização, compatibilidade de pilha, peso, slots, vínculo, reservas e ausência de duplicação.
-
-## 17. Comércio
-
-`startOrLoadTrade` retorna:
-
-- instâncias e pilhas do estoque;
-- qualidade e condição;
-- preços-base resolvidos;
-- preços de referência;
-- faixas mínima e máxima;
-- saldos;
-- perícia, passivas e relação;
-- reservas.
-
-`submitTrade` confirma a transação consolidada e idempotente.
-
-## 18. Fabricação
-
-`startOrLoadCraft` retorna:
-
-- receita;
-- definição e variante de saída;
-- materiais e ferramentas reservados;
-- perícia e profissão;
-- chance de sucesso;
-- limiares e teto de qualidade;
-- perfil de distribuição;
-- versões das regras.
-
-`submitCraftResolution` cria uma nova instância por sucesso, nunca uma nova definição por qualidade.
-
-## 19. Revisão e migração
-
-Motivos:
-
-```text
-CORRECTION
-BALANCE_REVISION
-NARRATIVE_EVOLUTION
-INSTANCE_STATE_CHANGE
-SCOPE_PROMOTION
-MIGRATION
-```
-
-Escopos:
-
-```text
-DEFINITION_FUTURE_INSTANCES
-CURRENT_INSTANCE
-SELECTED_INSTANCES
-ALL_COMPATIBLE_INSTANCES
-```
-
-Preferência:
-
-- manter ID e código;
-- criar nova versão;
-- registrar motivo;
-- preservar vínculos;
-- não recalcular eventos históricos;
-- migrar instâncias apenas explicitamente.
-
-## 20. Congelamento
-
-Instâncias persistem valores resolvidos para evitar alterações silenciosas quando mudarem:
-
-- multiplicadores de qualidade;
-- custos de modificadores;
-- perfis de distribuição;
-- preços-base;
-- passivas escaláveis;
-- fórmulas de fabricação.
-
-## 21. Checkpoints, lotes e deltas
-
-Preferir operações em lote para materialização de grupos, transferências, comércio, consequências de encontro e fabricação em lote.
-
-Sessões longas suportam checkpoint, retomada e cancelamento por `cancelSession`.
-
-Depois do snapshot inicial, o backend pode retornar:
-
-```text
-snapshotDelta
-changedEntities
-invalidatedReferences
-requiredReloads
-```
-
-## 22. Erros acionáveis
-
-Exemplos de códigos:
-
-```text
-DUPLICATE_ITEM_DEFINITION
-VARIANT_NOT_REQUIRED
-QUALITY_MUST_BE_INSTANCE_LEVEL
-POWER_BUDGET_EXCEEDED
-INCOMPATIBLE_STACK
-INSTANCE_VERSION_CONFLICT
-MIGRATION_REQUIRED
-ACTION_NOT_AVAILABLE
-OPERATION_NOT_ALLOWED
-STATE_VERSION_CONFLICT
-IDEMPOTENCY_CONFLICT
-SNAPSHOT_INCOMPLETE
-```
-
-O retorno sempre explica o problema e oferece correções possíveis.
+## 25. Requisitos para o Codex
+
+- motor único de validação para pacote temporário e persistente;
+- validação acumulativa;
+- schemas discriminados por nó e componente;
+- UUID, `code`, `version` e `clientRef`;
+- pesquisa e reutilização de conteúdo;
+- grafo de dependências;
+- transação e rollback;
+- materialização temporária;
+- promoção sem duplicação;
+- perfis de prontidão;
+- `referenceMap`;
+- idempotência e controle de versão;
+- erros acionáveis;
+- testes com componentes opcionais;
+- testes com vários erros simultâneos;
+- testes de pacote misto com conteúdo reutilizado e novo;
+- teste do limite máximo de 30 Actions.

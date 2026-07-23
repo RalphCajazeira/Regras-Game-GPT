@@ -1,26 +1,27 @@
 # Sistema de Fabricação e Qualidade
 
-**Versão da proposta:** `crafting-v0.1`  
+**Versão da proposta:** `crafting-v0.2`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Definir como personagens fabricam, reparam, melhoram, desmontam e encantam itens usando atributos, perícias, profissões, receitas, materiais, ferramentas, oficinas, passivas e rolagens.
+Definir como personagens fabricam, reparam, melhoram, desmontam, refinam e encantam itens usando definições existentes, receitas, materiais, ferramentas, oficinas, atributos, perícias, profissões, passivas e rolagens.
 
-A fabricação deve permitir progressão pelo uso sem transformar materiais comuns em itens excepcionais sem requisitos compatíveis.
+A fabricação cria ou altera **instâncias**. Ela não cria uma nova definição toda vez que a qualidade muda.
 
 ## 2. Princípios
 
 1. Toda fabricação parte de uma receita ou procedimento conhecido.
-2. Atributos indicam potencial; perícias indicam treinamento.
-3. Receita, material, ferramenta e oficina limitam a qualidade máxima.
-4. A perícia melhora sucesso e qualidade dentro desse limite.
-5. Toda tentativa persistente consome ou reserva recursos reais.
-6. O backend é autoridade sobre consumo, criação, qualidade e XP.
-7. O GPT pode conduzir uma sessão local quando recebe todos os parâmetros.
-8. Repetições triviais concedem pouco ou nenhum XP.
-9. Qualidade do item e condição atual do item são conceitos diferentes.
-10. Fórmulas e limiares são versionados.
+2. A receita referencia uma definição de item ou variante já existente.
+3. Qualidade pertence à instância produzida.
+4. A referência de poder e preço da definição é a qualidade Comum.
+5. Receita, material, ferramenta, oficina e desbloqueios limitam a qualidade máxima.
+6. Perícia e atributos melhoram sucesso e qualidade dentro do teto permitido.
+7. Toda tentativa persistente consome ou reserva recursos reais.
+8. O backend é autoridade sobre consumo, criação, qualidade, valores resolvidos e XP.
+9. O GPT pode conduzir a sessão localmente usando parâmetros carregados.
+10. Repetições triviais concedem pouco ou nenhum XP.
+11. Valores resolvidos ficam congelados na instância criada.
 
 ## 3. Operações
 
@@ -33,15 +34,17 @@ DISMANTLE
 REFINE
 ```
 
-Cada operação possui sua própria receita, custos, riscos e resultados permitidos.
-
 ## 4. Receita
 
 ```json
 {
-  "code": "iron-long-sword",
-  "name": "Espada Longa de Ferro",
+  "code": "craft-elven-dagger",
+  "version": 1,
+  "name": "Forjar Adaga Élfica",
   "operation": "CRAFT",
+  "outputDefinitionCode": "elven-dagger",
+  "outputDefinitionVersion": 1,
+  "outputVariantCode": "BASE",
   "requiredProfession": "blacksmith",
   "requiredSkill": "blacksmithing",
   "minimumSkillLevel": 5,
@@ -52,24 +55,61 @@ Cada operação possui sua própria receita, custos, riscos e resultados permiti
   "requiredToolTags": ["SMITH_HAMMER"],
   "requiredWorkspaceTags": ["FORGE"],
   "allowedQualities": ["INFERIOR", "COMMON", "RARE"],
-  "maximumQuality": "RARE"
+  "maximumQuality": "RARE",
+  "failurePolicy": {}
 }
 ```
 
-A receita deve declarar antes da tentativa:
+A receita declara antes da tentativa:
 
-- resultado possível;
+- definição e variante produzidas;
 - nível e dificuldade;
-- perícia e profissão requeridas;
+- profissão e perícia requeridas;
 - materiais e quantidades;
-- ferramentas;
-- oficina ou ambiente;
+- ferramentas e oficina;
 - tempo;
 - qualidades permitidas;
-- efeitos especiais permitidos;
+- teto de qualidade;
+- opções de distribuição permitidas;
+- efeitos especiais possíveis;
 - política de falha.
 
-## 5. Fatores da fabricação
+## 5. Definição versus instância
+
+Fluxo correto:
+
+```text
+Receita: Forjar Adaga Élfica
+→ definição existente: elven-dagger
+→ tentativa de fabricação
+→ sucesso ou falha
+→ qualidade resolvida
+→ nova instância criada
+```
+
+Cinco tentativas podem resultar em:
+
+```text
+1. Falha
+2. Adaga Élfica Comum
+3. Adaga Élfica Rara
+4. Falha
+5. Adaga Élfica Comum
+```
+
+Persistência:
+
+```text
+1 definição: elven-dagger
+3 instâncias:
+- item-001 COMMON
+- item-002 RARE
+- item-003 COMMON
+```
+
+O GPT e o backend não recriam a definição `elven-dagger` em cada tentativa.
+
+## 6. Fatores da fabricação
 
 A resolução pode considerar:
 
@@ -77,12 +117,13 @@ A resolução pode considerar:
 nível da perícia
 + atributos relevantes
 + proficiências
++ conhecimento da receita
 + qualidade dos materiais
 + ferramentas
 + oficina
 + passivas
 + condições
-+ dificuldade da receita
+- dificuldade
 + rolagem
 ```
 
@@ -90,20 +131,20 @@ Exemplo de Ferraria:
 
 - Força ajuda a trabalhar materiais resistentes;
 - Destreza ajuda na precisão e acabamento;
-- Inteligência ajuda em temperatura, ligas, projeto e técnica;
+- Inteligência ajuda em projeto, ligas, temperatura e técnica;
 - Ferraria representa experiência prática;
-- ferramentas e oficina ampliam o teto e a consistência.
+- ferramentas e oficina ampliam consistência e teto.
 
-Os pesos exatos pertencem à definição versionada da perícia ou receita.
+Os pesos são versionados e calculados pelo backend.
 
-## 6. Pontuação efetiva
+## 7. Pontuação efetiva
 
 Modelo conceitual:
 
 ```text
 Pontuação de Fabricação =
 pontuação efetiva da perícia
-+ bônus da receita conhecida
++ receita conhecida
 + ferramenta
 + oficina
 + materiais
@@ -111,19 +152,17 @@ pontuação efetiva da perícia
 + modificadores situacionais
 ```
 
-A dificuldade é comparada a essa pontuação para formar:
+A comparação com a dificuldade produz:
 
 - chance de sucesso;
-- risco de perda;
-- faixa de qualidade;
+- risco de consumo ou perda;
+- chances e limiares de qualidade;
 - tempo final;
-- experiência possível.
+- XP possível.
 
-A fórmula numérica definitiva permanece pendente de simulações.
+## 8. Limite de qualidade
 
-## 7. Limite de qualidade
-
-A qualidade final nunca pode ultrapassar o menor teto aplicável entre:
+A qualidade final não pode ultrapassar o menor teto aplicável entre:
 
 ```text
 receita
@@ -142,27 +181,9 @@ Receita avançada + material raro → máximo Épico
 Receita lendária + material lendário + oficina compatível → pode alcançar Lendário
 ```
 
-Um personagem muito habilidoso aumenta a chance de alcançar o teto disponível, mas não ignora esse teto.
+Perícia elevada melhora a chance de alcançar o teto, mas não o ignora.
 
-## 8. Qualidades
-
-O sistema usa as qualidades canônicas:
-
-```text
-INFERIOR
-COMMON
-RARE
-EPIC
-LEGENDARY
-```
-
-A qualidade determina o orçamento de poder do item conforme o sistema de equipamentos.
-
-A fabricação não distribui atributos livremente depois da rolagem. A receita, especialização, materiais e escolhas declaradas antes da resolução definem quais distribuições são válidas.
-
-## 9. Limiar de qualidade
-
-Exemplo de resposta carregada:
+## 9. Resolução de qualidade
 
 ```json
 {
@@ -170,14 +191,13 @@ Exemplo de resposta carregada:
   "qualityThresholds": {
     "INFERIOR": 1,
     "COMMON": 30,
-    "RARE": 70,
-    "EPIC": 94
+    "RARE": 70
   },
-  "maximumQuality": "EPIC"
+  "maximumQuality": "RARE"
 }
 ```
 
-A rolagem e a política da receita determinam o resultado. Os limiares devem ser conhecidos antes da rolagem.
+Os limiares devem ser conhecidos antes da rolagem.
 
 Possíveis resultados:
 
@@ -189,9 +209,84 @@ Possíveis resultados:
 - item Épico;
 - item Lendário, quando permitido.
 
-## 10. Falha e consumo
+## 10. Criação da instância
 
-A receita declara a política de falha:
+Quando houver sucesso, o backend:
+
+1. localiza a definição e variante;
+2. confirma a versão usada;
+3. resolve a qualidade;
+4. calcula o orçamento da instância;
+5. distribui o orçamento conforme o perfil da definição e escolhas permitidas;
+6. calcula modificadores finais;
+7. calcula preços-base resolvidos;
+8. resolve ações ou passivas escaláveis;
+9. cria a instância;
+10. consome materiais e aplica desgaste;
+11. concede XP;
+12. registra proveniência e histórico.
+
+Exemplo:
+
+```json
+{
+  "definitionCode": "elven-dagger",
+  "definitionVersion": 1,
+  "quality": "RARE",
+  "resolvedPowerBudget": {
+    "referenceCommonPoints": 10,
+    "qualityMultiplier": 1.4,
+    "maximumPoints": 14,
+    "usedPoints": 14
+  },
+  "resolvedModifiers": {
+    "physicalAttack": 11,
+    "physicalAccuracy": 3
+  },
+  "craftedByActorId": "player-1"
+}
+```
+
+## 11. Distribuição de poder
+
+A qualidade não libera distribuição arbitrária depois da rolagem.
+
+A distribuição é limitada por:
+
+- perfil da definição;
+- variante;
+- receita;
+- especialização do fabricante;
+- materiais escolhidos;
+- opções declaradas antes da resolução;
+- orçamento final.
+
+Uma Adaga Élfica não recebe bônus aleatório de Mana ou Defesa Mágica sem regra ou identidade compatível.
+
+## 12. Variante durante a fabricação
+
+Uma receita pode produzir:
+
+- a definição-base;
+- uma variante preexistente;
+- uma nova variante proposta e validada quando houver diferença real.
+
+Não é variante:
+
+- qualidade diferente;
+- condição diferente;
+- fabricante diferente;
+- nome personalizado sem efeito mecânico.
+
+Pode ser variante:
+
+- material estrutural diferente;
+- elemento diferente;
+- ação ou passiva diferente;
+- distribuição de poder diferente;
+- receita e função próprias.
+
+## 13. Falha e consumo
 
 ```json
 {
@@ -204,11 +299,9 @@ A receita declara a política de falha:
 }
 ```
 
-O GPT não decide livremente quais materiais foram preservados. O backend valida o resultado conforme a política carregada.
+O GPT não decide livremente quais materiais foram preservados. O backend valida conforme a política carregada.
 
-## 11. Tempo
-
-Atividades usam tempo persistente do mundo.
+## 14. Tempo
 
 ```text
 Tempo Final =
@@ -216,9 +309,9 @@ tempo base da receita
 modificado por perícia, ferramenta, oficina, passivas e complexidade
 ```
 
-Velocidades de combate não reduzem automaticamente horas de trabalho artesanal. Uma passiva ou regra de profissão deve declarar esse efeito explicitamente.
+Velocidades de combate não reduzem automaticamente horas de trabalho artesanal.
 
-## 12. Experiência da perícia
+## 15. Experiência
 
 O backend calcula XP considerando:
 
@@ -228,58 +321,51 @@ O backend calcula XP considerando:
 - novidade;
 - repetição;
 - recursos consumidos;
-- diferença entre nível da perícia e receita.
-
-Proposta conceitual:
+- diferença entre perícia e receita.
 
 ```text
-receita próxima ou acima da perícia → XP normal ou elevado
-receita muito abaixo → XP reduzido
-receita trivial → 0 XP
+Receita equivalente ou difícil → XP normal ou elevado
+Receita muito inferior → XP reduzido
+Receita trivial → 0 XP
 ```
 
-Falhas válidas podem conceder XP reduzido. Cancelamentos e tentativas inválidas não concedem XP.
-
-## 13. Sessão de fabricação
+## 16. Sessão de fabricação
 
 ```json
 {
   "craftSessionId": "craft-session-id",
   "stateVersion": 15,
   "ruleVersions": {
-    "attributes": "attributes-v0.4",
-    "equipment": "equipment-v0.4",
+    "equipment": "equipment-v0.5",
+    "inventory": "inventory-v0.2",
     "skills": "skills-v0.1",
-    "crafting": "crafting-v0.1"
+    "crafting": "crafting-v0.2"
   },
   "actor": {},
   "profession": {},
-  "skill": {
-    "code": "blacksmithing",
-    "level": 8,
-    "effectiveScore": 72
-  },
+  "skill": {},
   "recipe": {},
+  "outputDefinition": {},
   "materials": [],
   "tools": [],
   "workspace": {},
   "resolution": {
-    "successChance": 86,
+    "successChance": 0,
     "qualityThresholds": {},
-    "maximumQuality": "EPIC"
+    "maximumQuality": "COMMON"
   }
 }
 ```
 
-O GPT pode conduzir preparação, escolhas permitidas, rolagens e narrativa. O backend confirma o consumo e cria o item autoritativamente.
+O GPT conduz escolhas permitidas, rolagens e narrativa. O backend confirma o resultado e cria a instância autoritativamente.
 
-## 14. Resultado consolidado
+## 17. Resultado consolidado
 
 ```json
 {
   "craftSessionId": "craft-session-id",
   "baseStateVersion": 15,
-  "recipeCode": "iron-long-sword",
+  "recipeCode": "craft-elven-dagger",
   "declaredOptions": {},
   "rolls": [],
   "reportedResult": {
@@ -289,39 +375,45 @@ O GPT pode conduzir preparação, escolhas permitidas, rolagens e narrativa. O b
 }
 ```
 
-O backend:
+## 18. Congelamento e revisão
 
-1. confere a versão;
-2. recalcula pontuações e limites;
-3. valida materiais, ferramentas e oficina;
-4. valida as rolagens;
-5. consome recursos;
-6. cria ou altera o item;
-7. concede XP;
-8. registra histórico;
-9. retorna o resultado autoritativo.
+A instância criada grava:
 
-## 15. Integração com economia
+- definição e versão;
+- qualidade;
+- orçamento resolvido;
+- modificadores resolvidos;
+- preços-base resolvidos;
+- versões das regras;
+- fabricante;
+- semente e proveniência.
 
-Fabricação pode gerar valor, mas o preço-base continua sendo calculado pelas regras econômicas e de equipamento.
+Mudanças futuras em multiplicadores ou definição não alteram silenciosamente a instância. Migração é explícita.
 
-Custos relevantes:
+O GPT pode revisar definição, variante, receita ou instância quando houver motivo coerente, usando escopo e versionamento.
+
+## 19. Integração econômica
+
+Fabricação transforma recursos e tempo em instâncias. Não cria dinheiro diretamente.
+
+Custos possíveis:
 
 - materiais;
 - combustível;
-- aluguel de oficina;
 - desgaste de ferramentas;
+- oficina;
 - taxas;
 - serviços auxiliares;
-- tempo do personagem.
+- tempo.
 
-Itens fabricados não possuem garantia de venda. Comerciantes continuam limitados por especialidade, demanda, estoque e saldo.
+A venda usa os preços resolvidos da instância e as regras de mercado.
 
-## 16. Pendências de validação
+## 20. Pendências
 
 - fórmula definitiva de sucesso;
-- pesos de atributos por profissão;
 - limiares de qualidade;
+- arredondamento do orçamento;
+- perfis de distribuição;
 - consumo em falhas;
 - durabilidade de ferramentas;
 - tempo de produção;
@@ -329,4 +421,5 @@ Itens fabricados não possuem garantia de venda. Comerciantes continuam limitado
 - encantamento e efeitos especiais;
 - desmontagem e subprodutos;
 - XP e retorno decrescente;
-- fabricação em lote.
+- fabricação em lote;
+- migração de instâncias após revisão.

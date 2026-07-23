@@ -10,8 +10,52 @@ Este arquivo separa regras aceitas de propostas ainda sujeitas a testes.
 - Validação não significa imutabilidade.
 - O frontend futuro usa o mesmo domínio e validações.
 - Recursos ausentes não podem ser acrescentados retroativamente a uma sessão em andamento.
+- As regras de negócio ficam em serviços de aplicação e domínio, não presas à interface REST, GraphQL ou frontend.
 
-## 2. Criação, revisão e versionamento
+## 2. Actions e contratos operacionais
+
+- O GPT possui limite de 30 Actions expostas.
+- O catálogo inicial planeja 22 Actions e reserva 8 vagas.
+- REST + OpenAPI é a interface canônica do GPT.
+- GraphQL pode ser avaliado futuramente para o frontend, mas não substitui as Actions do GPT.
+- Uma Action representa um domínio ou fluxo; microações usam enums internos tipados.
+- Serviços, comandos e endpoints internos não contam como Actions.
+- Novos sistemas devem reutilizar Actions existentes sempre que compartilharem domínio e invariantes.
+- Nova Action exige ciclo de vida, transação, segurança ou contrato realmente diferente.
+- Não expor `executeAnything`, `executeGraphQL`, atualização arbitrária de entidade ou payload sem schema.
+- Toda mutação crítica usa idempotência e `stateVersion`.
+- Toda resposta informa erros acionáveis, correções e próximas operações possíveis.
+- O OpenAPI deve possuir teste automatizado que falhe acima de 30 `operationId`s.
+- O alvo de até 22 Actions só pode ser alterado por decisão versionada.
+
+Catálogo inicial:
+
+```text
+loadGame
+searchContent
+getContent
+manageContent
+materializeActors
+manageActor
+manageRelationships
+manageInventory
+startOrLoadEncounter
+checkpointEncounter
+submitEncounterResolution
+startOrLoadTrade
+submitTrade
+startOrLoadCraft
+submitCraftResolution
+startOrLoadSkillSession
+submitSkillResolution
+manageMission
+applyProgression
+advanceWorldTime
+manageWorldState
+cancelSession
+```
+
+## 3. Criação, revisão e versionamento
 
 - Todo conteúdo pode ser revisado com justificativa coerente.
 - Sugestões do jogador são avaliadas, não aplicadas automaticamente.
@@ -30,7 +74,7 @@ SELECTED_INSTANCES
 ALL_COMPATIBLE_INSTANCES
 ```
 
-## 3. Atributos
+## 4. Atributos
 
 ```text
 Força
@@ -46,7 +90,7 @@ Inteligência
 - Pontos podem permanecer não distribuídos.
 - Especializações usam secundários, perícias, proficiências, profissões e passivas.
 
-## 4. Atores
+## 5. Atores
 
 - Ator é o modelo universal para pessoas, animais, monstros, criaturas, espíritos, construtos, invocações e jogadores.
 - Natureza, espécie, arquétipo, facção, papel e controle são separados.
@@ -58,7 +102,7 @@ Inteligência
 - Companheiro é papel e vínculo, não espécie.
 - Materialização usa semente determinística.
 
-## 5. Definições, variantes, qualidades e instâncias de item
+## 6. Definições, variantes, qualidades e instâncias de item
 
 ### Regra consolidada
 
@@ -93,7 +137,7 @@ Pode criar variante ou definição:
 - ações ou passivas diferentes;
 - receita ou função mecânica própria.
 
-Antes de criar conteúdo, o backend deve retornar um dos resultados:
+Antes de criar conteúdo, o backend deve retornar:
 
 ```text
 USE_EXISTING_DEFINITION
@@ -105,7 +149,7 @@ REVIEW_REQUIRED
 
 Mudança somente de qualidade sempre reutiliza definição ou variante existente.
 
-## 6. Equipamentos
+## 7. Equipamentos
 
 - Todo equipamento declara todos os modificadores, inclusive zeros.
 - `primaryModifiers` inclui cinco atributos.
@@ -120,7 +164,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - Qualidade não altera automaticamente peso, slots, material ou empunhadura.
 - Passivas só escalam quando houver perfil explícito.
 
-## 7. Inventário, pilhas e saque
+## 8. Inventário, pilhas e saque
 
 - Definição, variante, instância e pilha são diferentes.
 - Todo item persistente possui localização e propriedade.
@@ -132,8 +176,9 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - Itens consumidos não reaparecem no saque.
 - Itens carregados, drops naturais e recompensas externas são fontes distintas.
 - Drops aleatórios usam semente persistida.
+- Operações do domínio são agrupadas em `manageInventory`.
 
-## 8. Fabricação
+## 9. Fabricação
 
 - Toda fabricação usa receita conhecida.
 - A receita referencia definição e variante de saída.
@@ -145,7 +190,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - Consumo, criação, reparo, qualidade e XP são autoritativos.
 - Valores resolvidos ficam congelados.
 
-## 9. Economia
+## 10. Economia
 
 - A moeda é Coroa, código `CROWN`.
 - Valores são inteiros.
@@ -156,7 +201,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - O GPT negocia somente dentro das faixas.
 - O backend controla saldo, estoque, propriedade e atomicidade.
 
-## 10. Combate e ações
+## 11. Combate e ações
 
 - Posições e alcances usam metros.
 - O tempo usa linha contínua em ticks.
@@ -169,7 +214,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - Ações podem ser interrompidas.
 - Munições, consumíveis e equipamentos usados precisam existir no snapshot.
 
-## 11. Perícias, profissões e passivas
+## 12. Perícias, profissões e passivas
 
 - Atributos representam potencial geral.
 - Perícias representam treinamento.
@@ -179,7 +224,75 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - O backend calcula pontuação efetiva, XP e níveis.
 - Atividades triviais concedem XP reduzido ou zero.
 
-## 12. Pendências de atributos
+## 13. Contratos comuns de operação
+
+Toda mutação persistente deve usar, quando aplicável:
+
+```text
+operation
+requestId
+idempotencyKey
+baseStateVersion
+dryRun
+context
+payload tipado
+```
+
+Toda resposta deve poder informar:
+
+```text
+status
+previousStateVersion
+newStateVersion
+result
+snapshotDelta
+warnings
+issues
+recoveryActions
+availableNextOperations
+```
+
+Status canônicos:
+
+```text
+SUCCESS
+PARTIAL_SUCCESS
+REQUIRES_ACTION
+REQUIRES_MATERIALIZATION
+REQUIRES_REVIEW
+CONFLICT
+REJECTED
+CANCELLED
+```
+
+Antes de sessão complexa:
+
+```text
+READY
+INCOMPLETE
+INVALID
+REQUIRES_MATERIALIZATION
+REQUIRES_REVIEW
+```
+
+## 14. Pendências de Actions e integração
+
+- validar o limite real no editor e no OpenAPI final;
+- testar catálogo com até 22 Actions;
+- revisar orçamento após cada novo sistema;
+- definir autenticação e autorização;
+- definir payload máximo, paginação e timeout;
+- definir retenção de idempotência;
+- definir atomicidade de lotes;
+- definir formato final de `snapshotDelta`;
+- definir códigos de erro por domínio;
+- criar exemplos OpenAPI completos;
+- testar escolha de Action pelo GPT;
+- testar recuperação automática após erros;
+- medir tokens e tamanho de snapshots;
+- impedir que Actions internas sejam expostas acidentalmente.
+
+## 15. Pendências de atributos
 
 - validar 16 pontos livres com cinco atributos;
 - definir limite por atributo;
@@ -187,7 +300,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - calibrar secundários, Vida, Mana e Vigor;
 - validar Agilidade contra Destreza.
 
-## 13. Pendências de atores
+## 16. Pendências de atores
 
 - orçamento de criação por nível e ameaça;
 - espécies, arquétipos e variantes;
@@ -200,7 +313,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - migração após revisão;
 - validação temática por tags.
 
-## 14. Pendências de equipamentos e qualidade
+## 17. Pendências de equipamentos e qualidade
 
 - calibrar multiplicadores de qualidade e slot;
 - definir arredondamento;
@@ -213,7 +326,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - migração de instâncias antigas;
 - agrupamento visual.
 
-## 15. Pendências de inventário e saque
+## 18. Pendências de inventário e saque
 
 - limites de pilha;
 - compatibilidade de condição;
@@ -226,7 +339,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - expiração de cadáveres;
 - prevenção de duplicação concorrente.
 
-## 16. Pendências de fabricação
+## 19. Pendências de fabricação
 
 - fórmula de sucesso;
 - limiares de qualidade;
@@ -239,7 +352,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - fabricação em lote;
 - XP e prevenção de treinamento abusivo.
 
-## 17. Pendências de economia
+## 20. Pendências de economia
 
 - cesta econômica;
 - preços Comuns por categoria;
@@ -252,7 +365,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - inflação;
 - migração de preços antigos.
 
-## 18. Pendências de combate e ações
+## 21. Pendências de combate e ações
 
 - base de 75% da chance de acerto;
 - influência do nível;
@@ -263,7 +376,7 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - testes de perseguição, interrupção e múltiplos inimigos;
 - aleatoriedade auditável.
 
-## 19. Pendências de progressão
+## 22. Pendências de progressão
 
 - XP do personagem;
 - divisão em grupo;
@@ -272,15 +385,16 @@ Mudança somente de qualidade sempre reutiliza definição ou variante existente
 - nível máximo;
 - relação entre personagem, perícia e profissão.
 
-## 20. Próximas validações
+## 23. Próximas validações
 
-1. Criar uma definição de Adaga Élfica Comum de referência.
-2. Simular cinco fabricações com falhas e qualidades diferentes.
-3. Confirmar uma definição e várias instâncias.
-4. Validar orçamento e preços resolvidos por qualidade.
-5. Agrupar duas instâncias Comuns e uma Rara na interface sem mesclar estados individuais.
-6. Tentar criar cadastro duplicado por qualidade e exigir reutilização.
-7. Criar variante real e comparar com simples mudança de qualidade.
-8. Alterar multiplicador futuro e confirmar congelamento das instâncias antigas.
-9. Continuar testes de atores, combate, comércio e fabricação.
-10. Ajustar antes das versões `v1.0`.
+1. Gerar OpenAPI com as 22 Actions planejadas.
+2. Garantir teste automático com máximo de 30 `operationId`s.
+3. Testar o GPT escolhendo Action e enum corretos em cenários ambíguos.
+4. Testar erro acionável e recuperação automática.
+5. Repetir mutação com a mesma `idempotencyKey` e impedir duplicação.
+6. Simular conflito de `stateVersion` e recuperação.
+7. Criar uma definição de Adaga Élfica Comum de referência.
+8. Simular cinco fabricações com falhas e qualidades diferentes.
+9. Confirmar uma definição e várias instâncias.
+10. Continuar testes de atores, combate, comércio e fabricação.
+11. Ajustar antes das versões `v1.0`.

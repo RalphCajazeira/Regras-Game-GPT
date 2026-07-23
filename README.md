@@ -42,6 +42,23 @@ Regras centrais:
 - conteúdo temporário pode ser usado e promovido depois;
 - UUID identifica entidades; `code` e `version` identificam definições; `clientRef` liga nós no pacote.
 
+## Sessões do Mestre e resolução local
+
+```text
+Backend prepara e valida a mesa
+→ GPT recebe autoridade local explícita
+→ conduz várias microações sem novas chamadas
+→ registra rolagens, eventos e consequências
+→ envia checkpoint ou resolução consolidada
+→ backend reproduz, ajusta e persiste
+```
+
+O GPT atua como Mestre. O backend funciona como livro de regras, árbitro e persistência. O snapshot declara o que pode ser resolvido localmente, o que pode ficar em buffer e o que exige backend imediato.
+
+A sessão deve suportar fechamento de dependências, prontidão, log reproduzível, consequências pendentes, rolagens locais, checkpoints, fases, replay parcial, retomada e separação entre informação do Mestre e informação visível ao jogador.
+
+Esse sistema reutiliza `loadGame`, `startOrLoadEncounter`, `checkpointEncounter`, `submitEncounterResolution` e `cancelSession`; nenhuma nova Action é necessária.
+
 ## Regra canônica de itens
 
 ```text
@@ -68,6 +85,7 @@ Uma Adaga Élfica possui um único cadastro reutilizável. Instâncias Comuns, R
 - [`docs/11-sistema-de-inventario-itens-drops-e-saque.md`](docs/11-sistema-de-inventario-itens-drops-e-saque.md): definições, variantes, instâncias, pilhas, peso, propriedade, drops e saque.
 - [`docs/12-contratos-operacionais-actions-erros-e-recuperacao.md`](docs/12-contratos-operacionais-actions-erros-e-recuperacao.md): limite de Actions, catálogo, envelopes, idempotência, erros e recuperação.
 - [`docs/13-criacao-validacao-e-materializacao-em-lote.md`](docs/13-criacao-validacao-e-materializacao-em-lote.md): pacotes completos, UUIDs, `clientRef`, validação acumulativa, conteúdo temporário e transações.
+- [`docs/14-sessoes-do-mestre-resolucao-local-checkpoints-e-replay.md`](docs/14-sessoes-do-mestre-resolucao-local-checkpoints-e-replay.md): autoridade local do GPT, dependências, logs, rolagens, consequências, checkpoints, fases, replay e retomada.
 
 ## Versões atuais
 
@@ -83,12 +101,13 @@ actors-v0.1
 inventory-v0.2
 operations-v0.2
 bundles-v0.1
+master-runtime-v0.1
 integration-v0.9
 ```
 
 ## Estado atual
 
-Os documentos representam uma especificação em evolução. Fórmulas, tempos, multiplicadores, preços, custos, limiares, carga, durabilidade e contratos operacionais devem ser simulados antes de versões `v1.0`.
+Os documentos representam uma especificação em evolução. Fórmulas, tempos, multiplicadores, preços, custos, limiares, carga, durabilidade, contratos operacionais e políticas de sessão devem ser simulados antes de versões `v1.0`.
 
 ## Convenções
 
@@ -106,6 +125,7 @@ Os documentos representam uma especificação em evolução. Fórmulas, tempos, 
 - O backend é autoridade de cálculo, validação e persistência.
 - O GPT pode criar e revisar conteúdos por operações válidas.
 - O GPT não altera retroativamente snapshots em andamento.
+- O GPT pode resolver microações localmente somente dentro da autoridade declarada no snapshot.
 - Toda mutação crítica usa idempotência e `stateVersion`.
 - Erros indicam motivo, campo, regra, esperado, recebido e recuperação.
 - O OpenAPI exposto ao GPT não pode ultrapassar 30 `operationId`s.

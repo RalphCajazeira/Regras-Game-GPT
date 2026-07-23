@@ -1,17 +1,289 @@
 # Sistema de Combate
 
-**Versão da proposta:** `combat-v0.1`  
+**Versão da proposta:** `combat-v0.2`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Permitir que o GPT resolva um encontro com as fichas carregadas, faça as rolagens, aplique as decisões narrativas e envie ao backend uma resolução consolidada, evitando uma chamada remota para cada ataque ou microetapa.
+Permitir que o GPT resolva um encontro com fichas, posições e ações carregadas, faça as rolagens, administre uma linha do tempo contínua e envie ao backend uma resolução consolidada.
 
-## 2. Princípio: uma única chance de acerto
+O backend não precisa ser chamado para cada ataque, deslocamento ou microetapa.
+
+## 2. Princípios
+
+1. O combate usa posições em metros.
+2. O tempo usa uma linha do tempo contínua.
+3. Não existe uma rodada rígida em que todos agem exatamente uma vez.
+4. Atores rápidos podem ficar disponíveis várias vezes antes de ações lentas terminarem.
+5. Toda ação possui preparação e recuperação.
+6. Declarar uma ação não significa resolvê-la imediatamente.
+7. Existe uma única rolagem de acerto.
+8. Esquiva ou Resistência participam da chance de acerto, sem segunda rolagem.
+9. Depois do acerto entram crítico ofensivo, Defesa Crítica e mitigação passiva.
+10. O GPT resolve localmente e registra tudo para validação final.
+
+## 3. Unidades
+
+### 3.1 Espaço
+
+```text
+metros
+```
+
+Posições recomendadas:
+
+```json
+{
+  "position": {
+    "xMeters": 12,
+    "yMeters": 8
+  },
+  "occupiedRadiusMeters": 0.5
+}
+```
+
+Ambientes simples podem usar apenas uma distância linear. Ambientes táticos usam coordenadas.
+
+### 3.2 Tempo
+
+```text
+10 ticks = 1 segundo
+60 ticks = 6 segundos
+```
+
+`combatTime` representa o tempo atual do encontro.
+
+Uma referência de 60 ticks pode ser usada para duração de efeitos e interface, mas não obriga cada participante a agir uma vez nesse período.
+
+## 4. Linha do tempo
+
+Cada ator possui:
+
+```text
+nextReadyAt
+```
+
+A próxima decisão normal pertence ao ator disponível no menor `nextReadyAt`.
+
+Ações declaradas geram eventos futuros:
+
+```text
+resolveAt
+nextReadyAt
+```
+
+Fórmulas:
+
+```text
+resolveAt = combatTime + windupFinal
+```
+
+```text
+nextReadyAt = combatTime + windupFinal + recoveryFinal
+```
+
+O relógio avança sempre para o próximo evento relevante.
+
+## 5. Fila de eventos
+
+A fila pode conter:
+
+```text
+ACTION_RESOLVE
+ACTOR_READY
+MOVEMENT_COMPLETE
+CONDITION_TICK
+CONDITION_EXPIRE
+PROJECTILE_ARRIVAL
+REACTION_WINDOW
+ENCOUNTER_EVENT
+```
+
+O evento com menor tempo é processado primeiro.
+
+Empates são resolvidos por:
+
+1. prioridade explícita do evento;
+2. maior `initiative`;
+3. maior Destreza;
+4. rolagem d100 registrada.
+
+A ordem de prioridade dos tipos ainda precisa de teste.
+
+## 6. Disponibilidade inicial
+
+A Iniciativa determina quando cada ator fica disponível no começo do encontro.
+
+Proposta inicial:
+
+```text
+initialReadyAt =
+máximo(
+  0,
+  baseInitialDelayTicks - arredondar_para_baixo(Iniciativa ÷ 5)
+)
+```
+
+`baseInitialDelayTicks` é definido pelo encontro, normalmente `10`.
+
+Surpresa, prontidão, emboscada e preparação anterior podem modificar esse valor.
+
+Depois da primeira ação, a ordem é controlada pelos tempos das ações, não por uma lista fixa de turnos.
+
+## 7. Ajuste temporal
+
+As ações usam `physicalActionSpeed`, `castingSpeed` ou outro rating declarado.
+
+```text
+Tempo Ajustado =
+arredondar_para_cima(
+  Tempo Base × 100 ÷ (100 + Velocidade Aplicável)
+)
+```
+
+Depois:
+
+```text
+Tempo Final = máximo(Tempo Mínimo, Tempo Ajustado)
+```
+
+Nenhum atributo pode reduzir uma ação a zero.
+
+## 8. Movimento
+
+`movementSpeed` é expresso em metros por segundo.
+
+```text
+Tempo de Movimento =
+arredondar_para_cima(
+  distânciaEmMetros ÷ movementSpeed × 10
+)
+```
+
+O movimento pode ser registrado como evento com posição inicial, posição final, início e conclusão.
+
+### 8.1 Revalidação durante o movimento
+
+O GPT deve considerar:
+
+- obstáculos;
+- terreno;
+- colisão;
+- engajamento;
+- mudança de destino;
+- interrupção;
+- queda ou incapacidade.
+
+### 8.2 Corrida
+
+Proposta inicial:
+
+```text
+Velocidade de Corrida = movementSpeed × 1,5
+```
+
+A corrida consome Vigor e pode reduzir precisão ou aumentar risco quando a manobra ou o terreno justificarem.
+
+### 8.3 Vantagem legítima de mobilidade
+
+Um arqueiro rápido em campo aberto pode disparar e recuar contra um inimigo lento.
+
+O GPT não deve inventar quedas ou escorregões apenas para permitir que o perseguidor alcance o arqueiro.
+
+A resposta do inimigo depende de recursos reais:
+
+- corrida;
+- investida;
+- ataque à distância;
+- cobertura;
+- cerco;
+- terreno;
+- múltiplos participantes;
+- consumo de Vigor;
+- munição;
+- saída limitada da área.
+
+## 9. Movimento e ataque
+
+Movimento e ataque são ações separadas por padrão.
+
+Se o alvo estiver fora do alcance:
+
+```text
+1. mover até uma posição válida;
+2. ficar disponível novamente;
+3. iniciar o ataque.
+```
+
+Uma ação composta, como investida, pode combinar movimento e ataque se sua definição declarar isso.
+
+## 10. Engajamento
+
+Atores dentro da faixa de combate próximo podem ficar em estado:
+
+```text
+ENGAGED
+```
+
+O alcance exato depende das ações e armas envolvidas.
+
+Sair do engajamento pode usar:
+
+### Desengajamento cuidadoso
+
+- maior custo temporal;
+- evita reação normal do oponente.
+
+### Recuo imediato
+
+- menor custo temporal;
+- pode abrir janela de reação.
+
+As fórmulas exatas ainda precisam ser calibradas.
+
+## 11. Reações
+
+Uma reação pode ocorrer antes de o ator ficar normalmente disponível.
+
+Exemplos:
+
+- ataque de oportunidade;
+- aparo;
+- contra-ataque;
+- interrupção de magia;
+- proteção de aliado;
+- contra-feitiço.
+
+Reações geram dívida temporal:
+
+```text
+nextReadyAt += timeDebtTicks
+```
+
+Uma reação não concede uma ação gratuita sem consequência futura.
+
+## 12. Preparação e interrupção
+
+Durante o `windup`, outros eventos podem acontecer.
+
+Uma ação pode falhar ou mudar se:
+
+- o ator for derrotado;
+- o ator for incapacitado;
+- o alvo sair do alcance;
+- a linha de visão for perdida;
+- o equipamento necessário deixar de estar disponível;
+- a conjuração for interrompida;
+- o custo deixar de ser válido;
+- o ambiente mudar.
+
+No momento de `ACTION_RESOLVE`, o GPT revalida os requisitos.
+
+Magias e habilidades declaram a política de interrupção no sistema de ações.
+
+## 13. Princípio: uma única chance de acerto
 
 Não existe uma rolagem de ataque seguida por outra rolagem de esquiva.
-
-A chance única de acerto já compara os dois envolvidos:
 
 ```text
 Precisão do atacante
@@ -23,9 +295,9 @@ Chance final de acerto
 
 A Esquiva é um rating defensivo, não uma porcentagem independente.
 
-Os resultados que não acertam podem ser narrados como erro, esquiva, mudança de trajetória, obstáculo, terreno ruim ou outro acontecimento coerente.
+Os resultados que não acertam podem ser narrados como erro, esquiva, mudança de trajetória, obstáculo ou interferência coerente.
 
-## 3. Limites absolutos
+## 14. Limites absolutos de acerto
 
 ```text
 Chance mínima de acerto: 1%
@@ -34,38 +306,42 @@ Chance máxima de acerto: 99%
 
 Nenhum ataque é impossível e nenhum ataque é garantido.
 
-Uma pessoa nível 1 pode atingir um gatuno nível 50 extremamente ágil em uma situação excepcional de 1%. A narrativa explica o acontecimento depois da rolagem; ela não altera o resultado mecânico.
+Uma pessoa nível 1 pode atingir um gatuno nível 50 extremamente ágil em uma situação excepcional de 1%. A narrativa explica o resultado depois da rolagem.
 
-## 4. Fluxo de resolução
+## 15. Fluxo ofensivo
 
 ```text
-1. Validar ação, alcance, alvo, custos e condições.
-2. Selecionar Precisão e oposição aplicáveis.
-3. Calcular a chance única de acerto.
-4. Rolar 1d100.
-5. Se falhar, encerrar o ataque sem dano.
-6. Se acertar, testar crítico ofensivo.
-7. Calcular o dano bruto ou poder do impacto.
-8. Calcular e testar Defesa Crítica.
-9. Se a Defesa Crítica ocorrer, anular o dano.
-10. Caso contrário, aplicar DEF Física ou DEF Mágica.
-11. Aplicar dano, custos e efeitos.
-12. Verificar derrota, recuo, rendição ou continuação.
+1. A ação é declarada e agendada.
+2. Custos de início são aplicados.
+3. Eventos intermediários são processados.
+4. No resolveAt, revalidar ator, alvo, alcance e linha de visão.
+5. Selecionar Precisão e oposição aplicáveis.
+6. Calcular a chance única de acerto.
+7. Rolar 1d100.
+8. Se falhar, resolver a política de falha da ação.
+9. Se acertar, testar crítico ofensivo.
+10. Calcular dano bruto ou poder do impacto.
+11. Calcular e testar Defesa Crítica.
+12. Se ocorrer, anular o dano daquele componente.
+13. Caso contrário, aplicar defesa passiva.
+14. Aplicar dano, cura, custos restantes e efeitos.
+15. Verificar derrota, interrupção e novos eventos.
+16. Manter a recuperação até nextReadyAt.
 ```
 
-## 5. Seleção da oposição
+## 16. Seleção da oposição
 
 | Tipo de ação | Valor ofensivo | Oposição |
 |---|---|---|
 | Ataque físico | `physicalAccuracy` | `evasion` |
 | Projétil mágico | `magicalAccuracy` | `evasion` |
 | Magia mental | `magicalAccuracy` | `mentalResistance` |
-| Magia corporal/condição física | `magicalAccuracy` | `physicalResistance` |
+| Magia corporal ou condição física | `magicalAccuracy` | `physicalResistance` |
 | Técnica física de condição | `physicalAccuracy` | `physicalResistance` |
 
-Cada ação deve declarar o modo de resolução. O GPT não escolhe a oposição depois de ver a rolagem.
+Cada ação declara o modo de resolução. O GPT não escolhe a oposição depois de ver a rolagem.
 
-## 6. Fórmula da chance de acerto
+## 17. Fórmula da chance de acerto
 
 ```text
 Chance de Acerto =
@@ -83,44 +359,33 @@ Depois:
 Chance Final = limitar(Chance de Acerto, 1, 99)
 ```
 
-### Exemplo comum
+Exemplo:
 
 ```text
 Precisão Física: 30
-Esquiva do alvo: 25
-Modificador da ação: 0
-
+Esquiva: 25
 Chance = 75 + 30 - 25 = 80%
 ```
 
-### Exemplo extremo
+Exemplo extremo:
 
 ```text
 Precisão Física: 55
-Esquiva do alvo: 220
-
-Chance calculada = 75 + 55 - 220 = -90%
+Esquiva: 220
+Chance calculada = -90%
 Chance final = 1%
 ```
 
-## 7. Rolagem de acerto
+## 18. Rolagem de acerto
 
-O GPT gera um número inteiro de `1` a `100` e o registra.
+O GPT gera e registra um inteiro de `1` a `100`.
 
 ```text
 rolagem ≤ chance final → acerto
 rolagem > chance final → falha
 ```
 
-Exemplo:
-
-```text
-Chance: 80%
-Rolagem: 37
-Resultado: acerto
-```
-
-## 8. Crítico ofensivo
+## 19. Crítico ofensivo
 
 O crítico é testado somente depois do acerto.
 
@@ -128,27 +393,24 @@ O crítico é testado somente depois do acerto.
 rolagem crítica ≤ criticalChance → crítico
 ```
 
-Quando ocorrer:
-
 ```text
 Dano Bruto Crítico =
 Dano Bruto Normal × (criticalDamage ÷ 100)
 ```
 
-O crítico aumenta o potencial do impacto, mas não impede a Defesa Crítica do alvo.
+O crítico não impede a Defesa Crítica.
 
-## 9. Dano bruto
+## 20. Dano bruto
 
-Cada ação deve declarar:
+Cada perfil da ação declara:
 
-- categoria de dano;
-- escala de ATK Físico e/ou ATK Mágico;
+- tipo de dano;
+- atributo de escala;
+- percentual de escala;
 - poder fixo;
+- defesa correspondente;
 - penetração;
-- custos;
-- alcance;
-- modificadores de acerto e crítico;
-- efeitos adicionais.
+- permissão de crítico.
 
 Fórmula geral:
 
@@ -160,14 +422,16 @@ Dano Bruto =
 + modificadores situacionais
 ```
 
-Ações híbridas podem gerar componentes físicos e mágicos separados.
+Ações híbridas podem possuir componentes separados.
 
-## 10. Defesa Crítica
+## 21. Defesa Crítica
 
-A Defesa Crítica representa uma defesa perfeita após o ataque conectar:
+A Defesa Crítica representa anulação perfeita após o ataque conectar.
+
+Exemplos:
 
 - aparo perfeito;
-- escudo que absorve completamente o impacto;
+- escudo que absorve o impacto;
 - armadura que faz o golpe ricochetear;
 - barreira que anula a magia;
 - proteção natural excepcional.
@@ -175,10 +439,10 @@ A Defesa Crítica representa uma defesa perfeita após o ataque conectar:
 Quando bem-sucedida:
 
 ```text
-Dano final = 0
+Dano daquele componente = 0
 ```
 
-### 10.1 Chance proposta
+### 21.1 Chance proposta
 
 ```text
 Chance de Defesa Crítica =
@@ -186,38 +450,29 @@ criticalDefense
 + arredondar_para_baixo(
     (Defesa correspondente - Poder do Impacto) ÷ 2
   )
-+ modificadores defensivos da situação
-- modificadores de quebra de guarda do ataque
++ modificadores defensivos
+- modificadores de quebra de guarda
 ```
-
-Depois:
 
 ```text
-Chance Final de Defesa Crítica =
-limitar(valor calculado, 0, 99)
+Chance Final = limitar(valor calculado, 0, 99)
 ```
 
-Onde `Poder do Impacto` é o dano bruto após o crítico ofensivo e antes da mitigação passiva.
+`Poder do Impacto` é o dano bruto depois do crítico e antes da mitigação.
 
-Essa fórmula é provisória e precisa ser simulada. Equipamentos, escudos, posturas e barreiras serão as principais fontes de `criticalDefense`.
+Essa fórmula ainda precisa de simulações.
 
-## 11. Defesa passiva e mitigação
-
-Se a Defesa Crítica falhar, aplica-se a defesa correspondente:
+## 22. Defesa passiva e mitigação
 
 ```text
 Dano físico → physicalDefense
 Dano mágico → magicalDefense
 ```
 
-Primeiro:
-
 ```text
 Defesa Efetiva =
-máximo(0, Defesa correspondente - Penetração do ataque)
+máximo(0, Defesa correspondente - Penetração)
 ```
-
-Depois:
 
 ```text
 Dano Final =
@@ -229,32 +484,36 @@ máximo(
 )
 ```
 
-Essa mitigação possui retorno decrescente e evita que uma defesa alta anule automaticamente todo ataque. A anulação completa pertence à Defesa Crítica ou a efeitos explícitos.
+A anulação completa pertence à Defesa Crítica ou a efeitos explícitos.
 
-## 12. Especializações extremas
-
-O sistema permite personagens com riscos claros.
+## 23. Especializações extremas
 
 ### Muito forte e pouco preciso
 
 - ATK Físico alto;
 - Vida e DEF Física altas;
 - baixa Precisão;
-- baixa Esquiva.
+- baixa Esquiva;
+- ações físicas podem continuar lentas se Destreza for baixa.
 
-Contra um alvo extremamente ágil, pode ter apenas `1%` de chance de acertar. Se acertar, pode causar morte imediata caso o alvo tenha pouca Vitalidade e defesa.
+Pode ter apenas 1% de chance contra um alvo ágil, mas causar dano fatal quando acertar.
 
 ### Muito ágil e pouco resistente
 
 - alta Precisão e Esquiva;
-- alta Iniciativa e crítico;
+- alta Iniciativa e `physicalActionSpeed`;
+- alta mobilidade;
 - pouca Vida e defesa se não investir em Vitalidade.
 
-Evita quase todos os golpes, mas corre risco elevado quando um golpe conecta.
+Pode agir várias vezes antes de um ataque pesado terminar, mas corre risco elevado se for atingido.
 
-## 13. Ataques localizados
+### Conjurador especializado
 
-O jogador pode trocar precisão por uma recompensa previamente declarada.
+- ATK Mágico, Mana, Precisão Mágica e `castingSpeed` altos;
+- pode concluir magias antes de oponentes lentos alcançarem;
+- continua vulnerável a interrupção e pressão corporal se não investir em outras áreas.
+
+## 24. Ataques localizados
 
 | Alvo | Precisão | Recompensa sugerida |
 |---|---:|---:|
@@ -262,13 +521,13 @@ O jogador pode trocar precisão por uma recompensa previamente declarada.
 | região pequena | `-15` | `+15%` crítico ou penetração moderada |
 | ponto vulnerável extremo | `-30` | `+30%` crítico ou penetração alta |
 
-A recompensa deve ser escolhida antes da rolagem.
+A recompensa é escolhida antes da rolagem.
 
-Acertar repetidamente a mesma região pode criar uma condição como `EXPOSED_POINT`, com duração e limite de acúmulo definidos pela ação.
+Acertos repetidos podem criar uma condição como `EXPOSED_POINT`.
 
-## 14. Ataque furtivo
+## 25. Ataque furtivo
 
-Proposta inicial para um alvo realmente desprevenido:
+Proposta inicial:
 
 ```text
 Precisão: +20
@@ -276,62 +535,92 @@ Chance de Crítico: +25%
 Defesa Crítica do alvo: -10%
 ```
 
-Ataque furtivo não garante acerto nem crítico. Ele modifica a mesma resolução normal.
+O ataque furtivo não garante acerto nem crítico.
 
-Percepção, iluminação, barulho, posição e condições podem impedir o estado desprevenido.
+## 26. Magias
 
-## 15. Magias
-
-### 15.1 Projétil direcionado
+### Projétil direcionado
 
 ```text
 Precisão Mágica contra Esquiva
 ```
 
-Se acertar, normalmente utiliza DEF Mágica.
+### Área
 
-### 15.2 Magia de área
+A ação declara a política de falha:
 
-A ação deve declarar o resultado de uma falha na chance de acerto:
+```text
+NO_DAMAGE
+HALF_DAMAGE
+REDUCED_DAMAGE
+SECONDARY_EFFECT_ONLY
+```
 
-- `NO_DAMAGE`;
-- `HALF_DAMAGE`;
-- dano reduzido específico;
-- efeito secundário sem dano principal.
-
-### 15.3 Magia mental
+### Mental
 
 ```text
 Precisão Mágica contra Resistência Mental
 ```
 
-### 15.4 Magia corporal
+### Corporal
 
 ```text
 Precisão Mágica contra Resistência Física
 ```
 
-## 16. Iniciativa e rodadas
+Magias com `windup` podem ser interrompidas antes de `resolveAt`.
 
-A ordem inicial utiliza `initiative`, com modificadores de surpresa, terreno, prontidão e habilidades.
+## 27. Múltiplos participantes
 
-Empates podem ser resolvidos por:
+Não existe uma sequência obrigatória do tipo jogador, inimigo A, inimigo B.
 
-1. maior Destreza;
-2. maior nível;
-3. rolagem d100.
+Exemplo:
 
-A estrutura de economia de ações ainda será definida em documento próprio ou em uma revisão deste arquivo.
+| Tempo | Evento |
+|---:|---|
+| 8 | inimigo rápido conclui aproximação |
+| 12 | jogador inicia ataque |
+| 17 | inimigo rápido inicia novo golpe |
+| 20 | ataque do jogador conecta |
+| 23 | golpe do inimigo rápido conecta |
+| 30 | inimigo lento conclui aproximação |
+| 31 | jogador fica disponível novamente |
+| 42 | golpe lento seria concluído |
 
-## 17. Registro estruturado de uma ação
+O jogador pode contra-atacar o inimigo rápido e ainda agir contra o lento antes da conclusão da ação pesada.
+
+## 28. Ações simultâneas
+
+Duas ações podem possuir o mesmo `resolveAt`.
+
+A regra inicial é resolver pelo desempate de eventos. Uma ação concluída primeiro pode interromper a outra.
+
+Uma política de simultaneidade verdadeira poderá ser adicionada depois para casos especiais.
+
+## 29. Registro estruturado
 
 ```json
 {
-  "turn": 3,
+  "sequence": 14,
+  "combatTime": 120,
+  "eventType": "ACTION_RESOLVE",
   "actorId": "warrior",
   "targetId": "rogue",
   "actionId": "heavy-strike",
+  "timing": {
+    "startedAt": 98,
+    "resolveAt": 120,
+    "nextReadyAt": 132,
+    "windupTicks": 22,
+    "recoveryTicks": 12
+  },
+  "positions": {
+    "actor": { "xMeters": 4, "yMeters": 2 },
+    "target": { "xMeters": 5.2, "yMeters": 2 }
+  },
   "calculation": {
+    "distanceMeters": 1.2,
+    "maximumRangeMeters": 2,
     "accuracy": 55,
     "oppositionType": "EVASION",
     "opposition": 220,
@@ -358,7 +647,23 @@ A estrutura de economia de ações ainda será definida em documento próprio ou
 }
 ```
 
-## 18. Encerramento
+## 30. Estado local obrigatório
+
+O GPT deve manter:
+
+- `combatTime`;
+- `nextReadyAt` de cada ator;
+- fila de eventos;
+- ações em preparação;
+- posições em metros;
+- engajamentos;
+- recursos;
+- condições;
+- recargas;
+- reações disponíveis;
+- participantes derrotados, incapacitados ou em fuga.
+
+## 31. Encerramento
 
 O combate pode terminar por:
 
@@ -369,9 +674,9 @@ O combate pode terminar por:
 - interrupção narrativa;
 - cancelamento seguro.
 
-Ao terminar, o GPT envia o histórico consolidado ao backend para validação e persistência.
+Ao terminar, o GPT envia snapshot-base, fila processada, histórico, estado final e versões de regra ao backend.
 
-## 19. Experiência
+## 32. Experiência
 
 Cada participante derrotável pode possuir:
 
@@ -379,4 +684,25 @@ Cada participante derrotável pode possuir:
 baseXpReward
 ```
 
-O GPT informa quais entidades foram derrotadas. O backend confirma a derrota, calcula o XP autoritativo, aplica participação e diferença de nível, verifica subidas e adiciona `10` pontos primários não distribuídos por nível adquirido.
+O GPT informa entidades derrotadas. O backend confirma, calcula XP autoritativo, aplica participação e diferença de nível, verifica subidas e adiciona `10` pontos primários não distribuídos por nível.
+
+## 33. Dependências
+
+Este documento depende de:
+
+- `01-sistema-de-atributos.md`;
+- `07-sistema-de-acoes-habilidades-e-magias.md`;
+- futuro sistema de condições e efeitos.
+
+## 34. Pendências
+
+- calibrar `baseInitialDelayTicks`;
+- validar tempos de armas, magias e movimento;
+- definir prioridade dos eventos;
+- definir concentração e interrupção;
+- definir custo de Vigor por corrida;
+- definir linha de visão, cobertura e terreno;
+- definir engajamento e desengajamento;
+- validar reações e dívida temporal;
+- testar perseguições, arqueiros, conjuradores e múltiplos inimigos;
+- simular níveis 1, 5, 10, 20 e 50.

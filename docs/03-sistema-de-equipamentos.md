@@ -1,28 +1,292 @@
 # Sistema de Equipamentos
 
-**Versão da proposta:** `equipment-v0.4`  
+**Versão da proposta:** `equipment-v0.5`  
 **Status:** em validação
 
 ## 1. Objetivo
 
-Definir uma estrutura universal para qualquer item equipável. Todo equipamento usa os mesmos campos de modificadores, inclusive quando o valor é `0`.
+Definir uma estrutura universal para equipamentos sem duplicar cadastros por qualidade.
 
-O GPT propõe equipamentos coerentes. O backend valida estrutura, orçamento, slots, atributos, ações concedidas, peso e preços-base.
+Uma Adaga Élfica possui uma única definição reutilizável. Qualidades Inferior, Comum, Rara, Épica e Lendária são resultados de instâncias concretas criadas, encontradas ou compradas.
 
-## 2. Princípios
+## 2. Regra central
 
-1. Todo equipamento declara todos os modificadores.
-2. Campos não utilizados permanecem em `0`.
-3. Equipamentos podem alterar os cinco atributos primários e os secundários.
-4. Nível, qualidade e slot determinam o orçamento de poder.
-5. Penalidades negativas recuperam orçamento para bônus positivos.
-6. O custo líquido não pode ultrapassar o limite.
-7. Todo item comercializável possui moeda, preço-base de compra e preço-base de venda.
-8. Qualidade aumenta poder e preço, mas não altera automaticamente o peso.
-9. Peso depende de material, tamanho, estrutura e efeitos explícitos.
-10. Equipamentos podem conceder ações, proficiências ou passivas compatíveis.
+```text
+Definição única com perfil Comum de referência
+→ qualidade aplicada à instância
+→ orçamento resolvido
+→ modificadores finais congelados
+```
 
-## 3. Slots
+Não devem existir definições separadas apenas por qualidade:
+
+```text
+ERRADO:
+elven-dagger-inferior
+elven-dagger-common
+elven-dagger-rare
+
+CORRETO:
+elven-dagger
+```
+
+## 3. Definição, variante e instância
+
+### 3.1 Definição de equipamento
+
+Representa o equipamento reutilizável:
+
+```json
+{
+  "code": "elven-dagger",
+  "version": 1,
+  "name": "Adaga Élfica",
+  "referenceQuality": "COMMON",
+  "level": 5,
+  "equipmentType": "WEAPON",
+  "weaponType": "DAGGER",
+  "familyCode": "elven-dagger",
+  "variantCode": "BASE",
+  "materialCode": "ELVEN_STEEL",
+  "weight": 0.7,
+  "allowedSlots": ["MAIN_HAND", "OFF_HAND"],
+  "handedness": "ONE_HANDED",
+  "baseModifiers": {
+    "physicalAttack": 10,
+    "magicalAttack": 0,
+    "physicalDefense": 0,
+    "magicalDefense": 0,
+    "physicalAccuracy": 2
+  },
+  "qualityScalingProfileCode": "STANDARD_LIGHT_WEAPON",
+  "grantedActionCodes": ["basic-elven-dagger-attack"],
+  "grantedPassiveCodes": [],
+  "tags": ["ELVEN", "DAGGER", "LIGHT_WEAPON", "FINESSE"]
+}
+```
+
+A definição usa `COMMON` como referência para atributos, orçamento e preço-base.
+
+### 3.2 Variante
+
+Variante representa diferença real de identidade ou funcionamento, não qualidade.
+
+Exemplos:
+
+```text
+Adaga Élfica
+Adaga Élfica Lunar
+Adaga Élfica Cerimonial
+Adaga Élfica Flamejante
+```
+
+Uma variante pode alterar:
+
+- material;
+- distribuição de poder;
+- elemento;
+- ações ou passivas;
+- receita;
+- aparência estrutural;
+- requisitos;
+- empunhadura ou função mecânica.
+
+Estrutura:
+
+```json
+{
+  "familyCode": "elven-dagger",
+  "variantCode": "MOON_SILVER"
+}
+```
+
+A variante ainda pode existir em qualquer qualidade permitida.
+
+### 3.3 Instância
+
+Representa uma unidade concreta:
+
+```json
+{
+  "itemInstanceId": "item-001",
+  "definitionCode": "elven-dagger",
+  "definitionVersion": 1,
+  "quality": "RARE",
+  "resolvedPowerBudget": {
+    "referenceCommonPoints": 10,
+    "qualityMultiplier": 1.4,
+    "maximumPoints": 14,
+    "usedPoints": 14
+  },
+  "resolvedModifiers": {
+    "physicalAttack": 11,
+    "magicalAttack": 0,
+    "physicalDefense": 0,
+    "magicalDefense": 0,
+    "physicalAccuracy": 3
+  },
+  "condition": "PRISTINE",
+  "durability": {
+    "current": 100,
+    "maximum": 100
+  },
+  "craftedByActorId": "player-1",
+  "generationSeed": "seed-value",
+  "ruleVersions": {
+    "equipment": "equipment-v0.5",
+    "crafting": "crafting-v0.2",
+    "inventory": "inventory-v0.2"
+  }
+}
+```
+
+## 4. Qualidades
+
+```text
+INFERIOR
+COMMON
+RARE
+EPIC
+LEGENDARY
+```
+
+Multiplicadores iniciais:
+
+| Qualidade | Poder | Preço |
+|---|---:|---:|
+| Inferior | `0,60` | `0,50` |
+| Comum | `1,00` | `1,00` |
+| Raro | `1,40` | `2,00` |
+| Épico | `1,80` | `4,00` |
+| Lendário | `2,40` | `8,00` |
+
+Os valores ainda precisam de simulações.
+
+## 5. Escalonamento da qualidade
+
+A qualidade multiplica o orçamento de poder da referência Comum.
+
+```text
+Orçamento da Instância =
+Orçamento Comum de Referência
+× Multiplicador de Qualidade
+```
+
+Arredondamento deve ser determinístico e versionado.
+
+### Exemplo simples
+
+```text
+Adaga Élfica Comum:
+ATK Físico +10
+
+Inferior: +6
+Comum: +10
+Rara: +14
+Épica: +18
+Lendária: +24
+```
+
+### Vários modificadores
+
+Quando existem vários modificadores, não se multiplica cegamente cada número. O sistema:
+
+1. calcula o custo total do perfil Comum;
+2. aplica o multiplicador da qualidade;
+3. distribui o novo orçamento conforme o perfil da definição;
+4. respeita custos diferentes dos modificadores;
+5. aplica limites e arredondamento;
+6. grava os resultados na instância.
+
+Exemplo:
+
+```text
+Perfil Comum:
+ATK Físico +8
+Precisão Física +2
+Custo total: 10
+
+Qualidade Rara:
+10 × 1,40 = 14 pontos
+
+Resultado possível:
+ATK Físico +11
+Precisão Física +3
+```
+
+## 6. Perfil de distribuição
+
+A definição deve indicar quais modificadores recebem o orçamento adicional.
+
+```json
+{
+  "powerDistribution": [
+    {
+      "attribute": "physicalAttack",
+      "priority": 1,
+      "minimumPercent": 70,
+      "maximumPercent": 85
+    },
+    {
+      "attribute": "physicalAccuracy",
+      "priority": 2,
+      "minimumPercent": 15,
+      "maximumPercent": 30
+    }
+  ]
+}
+```
+
+A qualidade não autoriza o GPT a adicionar atributos sem relação com a identidade do item.
+
+## 7. O que escala
+
+Pode escalar quando declarado:
+
+- ATK Físico e Mágico;
+- DEF Física e Mágica;
+- Precisões;
+- Esquiva e resistências;
+- recursos máximos;
+- atributos primários;
+- velocidades;
+- outros modificadores estruturados.
+
+Não muda automaticamente:
+
+- peso;
+- slots;
+- quantidade de mãos;
+- tipo da arma;
+- material;
+- tags;
+- aparência-base;
+- ações concedidas;
+- requisitos conceituais.
+
+## 8. Passivas e efeitos
+
+Passivas e ações não escalam automaticamente com qualidade.
+
+A definição deve declarar:
+
+```json
+{
+  "passiveCode": "elven-balance",
+  "scalesWithQuality": true,
+  "qualityValues": {
+    "INFERIOR": 1,
+    "COMMON": 2,
+    "RARE": 3,
+    "EPIC": 4,
+    "LEGENDARY": 5
+  }
+}
+```
+
+Sem perfil explícito, a passiva permanece igual.
+
+## 9. Slots
 
 ```text
 HEAD
@@ -41,88 +305,42 @@ WAIST
 ACCESSORY
 ```
 
-### Corpo — `BODY`
+`BODY` representa roupa-base. `CHEST` representa proteção estrutural.
 
-Roupa-base e aparência: traje de aventureiro, túnica, uniforme, vestido, vestes de viagem ou traje cerimonial. Pode fornecer bônus mínimos ou nulos e permanece sob o item de Peito.
-
-### Peito — `CHEST`
-
-Proteção estrutural: cota de malha, couraça, peitoral de couro, armadura de placas, manto reforçado ou veste de batalha encantada.
-
-`BODY` e `CHEST` são independentes.
-
-### Mãos — `HANDS`
-
-Luvas, manoplas e braçadeiras. Não se confunde com `MAIN_HAND` e `OFF_HAND`.
-
-## 4. Ocupação das mãos
-
-### Uma mão
-
-```json
-{
-  "handedness": "ONE_HANDED",
-  "allowedSlots": ["MAIN_HAND", "OFF_HAND"],
-  "occupiedSlots": 1
-}
-```
-
-Permite adaga + adaga, espada + escudo, varinha + adaga e combinações equivalentes.
-
-### Duas mãos
-
-```json
-{
-  "handedness": "TWO_HANDED",
-  "allowedSlots": ["MAIN_HAND"],
-  "occupiedSlots": 2
-}
-```
-
-O backend marca as duas mãos como ocupadas pela mesma instância.
-
-### Versátil
-
-`VERSATILE` fica reservado para perfis diferentes de uma ou duas mãos.
-
-## 5. Qualidade
+Armas podem ser:
 
 ```text
-INFERIOR
-COMMON
-RARE
-EPIC
-LEGENDARY
+ONE_HANDED
+TWO_HANDED
+VERSATILE
 ```
 
-| Qualidade | Multiplicador de poder | Multiplicador de preço proposto |
-|---|---:|---:|
-| Inferior | `0,60` | `0,50` |
-| Comum | `1,00` | `1,00` |
-| Raro | `1,40` | `2,00` |
-| Épico | `1,80` | `4,00` |
-| Lendário | `2,40` | `8,00` |
+Uma arma de duas mãos ocupa `MAIN_HAND` e `OFF_HAND` pela mesma instância.
 
-A qualidade representa fabricação, refinamento, encantamento ou técnica. Condição e conservação são conceitos separados.
+## 10. Orçamento-base
 
-## 6. Orçamento-base
+Proposta inicial:
 
 ```text
 Pontos-base do nível = 3 + (nível × 2)
 ```
 
-| Nível | Pontos-base comuns |
-|---:|---:|
-| 1 | 5 |
-| 2 | 7 |
-| 3 | 9 |
-| 4 | 11 |
-| 5 | 13 |
-| 10 | 23 |
+```text
+Pontos Comuns Máximos =
+máximo(
+  1,
+  arredondar_para_baixo(
+    pontos-base
+    × multiplicador do slot
+  )
+)
+```
 
-## 7. Multiplicador de slot
+A qualidade é aplicada depois sobre essa referência Comum.
 
-| Slot ou categoria | Multiplicador proposto |
+Multiplicadores de slot propostos:
+
+| Slot ou categoria | Multiplicador |
 |---|---:|
 | Corpo | `0,40` |
 | Cabeça | `0,70` |
@@ -139,88 +357,9 @@ Pontos-base do nível = 3 + (nível × 2)
 | Arma de duas mãos | `1,70` |
 | Escudo | `1,00` |
 
-```text
-Pontos Máximos =
-máximo(
-  1,
-  arredondar_para_baixo(
-    pontos-base
-    × multiplicador da qualidade
-    × multiplicador do slot
-  )
-)
-```
+## 11. Modificadores universais
 
-Os multiplicadores ainda precisam de simulação.
-
-## 8. Custos dos modificadores
-
-| Modificador | Benefício por ponto |
-|---|---:|
-| ATK Físico | `+1` |
-| ATK Mágico | `+1` |
-| DEF Física | `+1` |
-| DEF Mágica | `+1` |
-| Precisão Física | `+1` |
-| Precisão Mágica | `+1` |
-| Esquiva | `+1` |
-| Defesa Crítica | `+1` |
-| Resistência Física | `+1` |
-| Resistência Mental | `+1` |
-| Iniciativa | `+1` |
-| Percepção | `+1` |
-| Furtividade | `+1` |
-| Vida Máxima | `+5` |
-| Mana Máxima | `+5` |
-| Vigor Máximo | `+5` |
-| Capacidade de Carga | `+5` |
-
-Custos especiais propostos:
-
-| Modificador | Custo |
-|---|---:|
-| Atributo primário `+1` | `5` pontos |
-| Chance de Crítico `+1%` | `2` pontos |
-| Dano Crítico `+5%` | `2` pontos |
-| Velocidade de Movimento `+0,5 m/s` | `3` pontos |
-| Velocidade de Ação Física `+1` | `2` pontos |
-| Velocidade de Conjuração `+1` | `2` pontos |
-
-## 9. Penalidades
-
-```text
-Custo Líquido =
-custo positivo - recuperação negativa
-```
-
-O item é válido quando:
-
-```text
-Custo Líquido ≤ Pontos Máximos
-```
-
-Exemplo:
-
-```text
-Orçamento: 7
-DEF Física +7 = 7
-DEF Mágica +2 = 2
-Esquiva -2 = recupera 2
-Custo líquido = 7
-```
-
-Custos especiais são simétricos. `Agilidade -1`, por exemplo, recupera o mesmo custo de `Agilidade +1`.
-
-Penalidades precisam ser coerentes:
-
-- armadura pesada pode reduzir Agilidade, Esquiva, movimento, Iniciativa ou Furtividade;
-- arma pesada pode reduzir precisão ou velocidade de ação;
-- foco arcano pode trocar capacidade física por poder mágico;
-- item amaldiçoado pode justificar trocas incomuns.
-
-O limite global de recuperação negativa ainda precisa de testes.
-
-## 10. Estrutura universal de modificadores
+Todo equipamento declara todos os campos, inclusive os zerados:
 
 ```json
 {
@@ -258,160 +397,113 @@ O limite global de recuperação negativa ainda precisa de testes.
 }
 ```
 
-## 11. Ações, perícias e passivas concedidas
+## 12. Penalidades
 
-Um equipamento pode fornecer conteúdo mecânico previamente definido:
-
-```json
-{
-  "grantedActionCodes": ["basic-dagger-attack"],
-  "grantedPassiveCodes": ["balanced-grip-1"],
-  "grantedProficiencyCodes": []
-}
+```text
+Custo Líquido =
+Custo Positivo - Recuperação Negativa
 ```
 
-A definição do item não cria automaticamente ações arbitrárias. Os códigos precisam existir e ser compatíveis com slots, empunhadura e requisitos.
+Penalidades recuperam orçamento conforme o custo do modificador, mas devem ser coerentes com o item. O limite global de recuperação ainda precisa de validação.
 
-## 12. Identidade por categoria
+## 13. Preços-base
 
-### Adaga
+A definição guarda a referência Comum:
 
-Prioriza ATK Físico, Precisão Física, Destreza, velocidade de ação, crítico e Furtividade.
+```text
+commonBaseBuyPrice
+commonBaseSellPrice
+currencyCode = CROWN
+```
 
-### Espada larga
+A instância guarda os preços-base resolvidos para sua qualidade e versão:
 
-Prioriza ATK Físico e Força; pode penalizar precisão, Agilidade ou velocidade de ação.
+```text
+resolvedBaseBuyPrice
+resolvedBaseSellPrice
+```
 
-### Arco
+Mercado, condição, comerciante e negociação alteram somente o preço da transação.
 
-Prioriza Destreza, Precisão Física e ações de disparo. Agilidade pode favorecer reposicionamento e frequência por meio dos atributos do ator.
+## 14. Peso, condição e durabilidade
 
-### Cajado
-
-Prioriza ATK Mágico, Mana, Inteligência, Precisão Mágica e DEF Mágica. Pode conceder ações mágicas ou passivas de conjuração.
-
-### Escudo
-
-Prioriza DEF Física, DEF Mágica, Defesa Crítica e ações defensivas.
-
-### Roupa de Corpo
-
-Aparência e bônus mínimos ou nulos. Pode favorecer Percepção, Furtividade, Mana ou Vigor.
-
-### Peitoral pesado
-
-Prioriza DEF Física, Vida, Vitalidade e Defesa Crítica; pode penalizar Agilidade, movimento, velocidade de ação e Furtividade.
-
-### Botas
-
-Podem favorecer DEFs, Agilidade, Esquiva, movimento, Iniciativa e Furtividade.
-
-## 13. Peso
-
-A qualidade não altera automaticamente o peso.
+Qualidade não altera automaticamente o peso.
 
 ```text
 Peso = material + tamanho + estrutura + efeitos explícitos
 ```
 
-O peso só muda por motivo concreto, como outro material, reforço, estrutura oca ou encantamento.
-
-## 14. Preços-base
-
-Todo item comercializável possui:
+Qualidade, condição e durabilidade são conceitos diferentes:
 
 ```text
-currencyCode
-baseBuyPrice
-baseSellPrice
+Qualidade = potencial da fabricação
+Condição = conservação atual
+Durabilidade = desgaste mecânico
 ```
 
-Moeda atual:
+## 15. Congelamento e versionamento
 
-```text
-CROWN
-```
+A instância grava:
 
-```text
-baseBuyPrice =
-preço-base da categoria
-× fator de nível
-× multiplicador de qualidade
-× material
-× fabricação
-× fator de poder utilizado
-```
+- definição e versão;
+- qualidade;
+- orçamento resolvido;
+- modificadores resolvidos;
+- preços-base resolvidos;
+- ações e passivas resolvidas quando escaláveis;
+- versões das regras;
+- semente de geração.
 
-```text
-baseSellPrice =
-arredondar_para_baixo(baseBuyPrice × 0,40)
-```
+Mudanças futuras nos multiplicadores não alteram silenciosamente itens existentes. Migrações precisam ser explícitas.
 
-Mercado, condição, especialidade e negociação pertencem ao sistema de economia.
+## 16. Quando criar nova definição
 
-## 15. Fabricação
+Não cria nova definição:
 
-A qualidade de um equipamento fabricado deve respeitar o sistema de fabricação:
+- mudança apenas de qualidade;
+- condição ou durabilidade;
+- proprietário ou fabricante;
+- estado de roubo;
+- nome personalizado sem efeito mecânico.
 
-- receita;
-- material;
-- ferramenta;
-- oficina;
-- perícia;
-- profissão;
-- passivas;
-- teto de qualidade.
+Cria variante ou definição nova quando houver diferença real:
 
-Uma perícia elevada melhora a chance de qualidade, mas não ignora os limites de receita e materiais.
+- material estrutural diferente;
+- elemento diferente;
+- distribuição de poder diferente;
+- ações ou passivas diferentes;
+- receita diferente;
+- empunhadura ou função diferente;
+- identidade mecânica própria.
 
-## 16. Exemplo resumido
+## 17. Responsabilidades
 
-```json
-{
-  "code": "iron-dagger",
-  "name": "Adaga de Ferro",
-  "equipmentType": "WEAPON",
-  "weaponType": "DAGGER",
-  "level": 1,
-  "quality": "COMMON",
-  "materialCode": "IRON",
-  "allowedSlots": ["MAIN_HAND", "OFF_HAND"],
-  "handedness": "ONE_HANDED",
-  "occupiedSlots": 1,
-  "weight": 0.8,
-  "primaryModifiers": {
-    "strength": 0,
-    "agility": 0,
-    "dexterity": 0,
-    "vitality": 0,
-    "intelligence": 0
-  },
-  "secondaryModifiers": {
-    "physicalAttack": 3,
-    "physicalAccuracy": 1,
-    "physicalActionSpeed": 1
-  },
-  "grantedActionCodes": ["basic-dagger-attack"],
-  "currencyCode": "CROWN",
-  "baseBuyPrice": 40,
-  "baseSellPrice": 16
-}
-```
+### GPT
 
-No payload persistido completo, todos os campos de modificadores devem estar presentes, inclusive os zerados.
+- reutilizar definições existentes;
+- não duplicar cadastro por qualidade;
+- propor variante apenas quando houver diferença real;
+- usar perfil Comum como referência;
+- avaliar coerência temática;
+- enviar criação ou revisão estruturada.
 
-## 17. Validações do backend
+### Backend
 
-- estrutura completa;
-- nível, qualidade e material;
-- slots e empunhadura;
-- cinco atributos primários;
-- orçamento positivo, negativo e líquido;
-- ações, passivas e proficiências concedidas;
-- coerência de categoria;
-- peso;
-- preços-base;
-- requisitos;
-- versão das regras.
+- localizar definição e variante;
+- impedir duplicação semântica;
+- calcular orçamento por qualidade;
+- distribuir e validar modificadores;
+- congelar os resultados na instância;
+- preservar versões e histórico;
+- retornar erros acionáveis.
 
-Erros informam valor esperado, recebido e ações de recuperação.
+## 18. Pendências
+
+- calibrar multiplicadores de qualidade e slot;
+- definir arredondamento definitivo;
+- calibrar custos dos modificadores;
+- definir limite de recuperação negativa;
+- definir perfis de distribuição por categoria;
+- definir escalonamento de passivas e ações;
+- testar agrupamento visual de instâncias iguais;
+- definir migrações de itens já existentes.

@@ -15,12 +15,12 @@ Banco → estado, histórico, definições e instâncias
 Decisões:
 
 - a experiência principal será um ChatGPT App/Plugin com Apps SDK, MCP e widgets;
-- Custom GPT Actions/OpenAPI passa a ser legado/fallback;
+- Custom GPT Actions/OpenAPI passa a ser legado ou fallback;
 - REST pode permanecer como transporte interno ou cliente externo;
 - MCP, REST, widget e administração reutilizam os mesmos serviços;
 - regras não ficam duplicadas no widget ou prompt;
 - estado oficial permanece no backend;
-- identidade deriva de OAuth/token;
+- identidade deriva de OAuth ou token;
 - dados do Mestre não podem vazar ao widget.
 
 ## 2. Fluxos
@@ -80,10 +80,12 @@ finalizeSession
 cancelSession
 ```
 
+Decisões:
+
 - manter catálogo focado;
 - não criar ferramenta por microação;
 - não criar ferramenta genérica arbitrária;
-- ferramentas de leitura, prévia e escrita são separadas;
+- separar leitura, prévia e escrita;
 - widget pode chamar ferramentas autorizadas diretamente;
 - o antigo limite de 30 Actions não é regra canônica da arquitetura MCP;
 - treino em lote reutiliza `resolveGameCommand`, `resolveCreativeIntent` e `advanceWorldTime`.
@@ -115,7 +117,7 @@ cancelSession
 - backend é autoridade oficial para ações comuns no widget;
 - backend pode resolver vários eventos até `NEXT_PLAYER_DECISION`;
 - GPT controla intenção aberta, NPCs importantes e narrativa;
-- GPT localmente resolve mecânica somente em fallback explicitamente autorizado;
+- GPT resolve mecânica localmente somente em fallback explicitamente autorizado;
 - checkpoints ocorrem por fase ou consequência importante, não por microação;
 - replay parcial preserva eventos válidos;
 - resumo mecânico e narrativo suportam retomada.
@@ -151,7 +153,7 @@ Decisões:
 - loot é clicável e reflete estado real;
 - GPT não narra cada ataque comum;
 - widget deve ser remontável a partir do backend;
-- widget mostra prévias de treino, custo, duração e Cansaço;
+- widget mostra prévias de treino, custo, duração, XP estimada e Cansaço;
 - widget nunca concede XP ou recupera recursos por conta própria.
 
 ## 8. Atributos
@@ -164,12 +166,13 @@ Vitalidade
 Inteligência
 ```
 
-- Agilidade = rapidez e mobilidade;
-- Destreza = precisão e controle;
-- cada nível concede `10` pontos de capacidade de crescimento primário, ainda sujeito a calibração;
+- Agilidade representa rapidez e mobilidade;
+- Destreza representa precisão e controle;
+- cada nível concede `10` pontos de capacidade de crescimento primário;
 - uso e treinamento determinam quais atributos consomem essa capacidade;
 - atributos acumulam XP de treinamento próprio;
-- pontos não utilizados e XP pendente podem ser persistidos;
+- pontos não utilizados e XP pendente são persistidos;
+- o custo de aumento depende do valor permanente atual;
 - especializações usam perícias, proficiências, profissões e passivas.
 
 ## 9. Progressão por uso
@@ -185,7 +188,8 @@ Decisões canônicas:
 - comando rejeitado antes da execução não concede XP;
 - ações interrompidas podem conceder XP parcial;
 - progressão oficial nasce de eventos mecânicos confirmados;
-- backend calcula e persiste tudo de forma idempotente.
+- backend calcula e persiste tudo de forma idempotente;
+- XP é armazenada em milésimos para preservar frações.
 
 Camadas:
 
@@ -209,21 +213,107 @@ passivas e especializações
 
 ### Treino contra si mesmo
 
-- pode ocorrer quando a ação for fisicamente e mecanicamente válida;
+- pode ocorrer quando a ação for física e mecanicamente válida;
 - Vida, Vigor, Cansaço, tempo, ferimentos e morte continuam reais;
-- o backend respeita condições de parada declaradas;
+- backend respeita condições de parada declaradas;
 - não existe proteção narrativa automática contra a consequência escolhida.
 
-## 10. Nível geral
+## 10. Baseline numérico de progressão
+
+Documento canônico:
+
+```text
+docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md
+```
+
+### Precisão
+
+```text
+1 XP = 1.000 xpMilli
+```
+
+### Fórmula por evento
+
+```text
+ExecutionLearning =
+executionBaseXp
+× contexto
+× dificuldade
+× execução
+× repetição
+× Cansaço
+× modificadores
+
+ResultLearning =
+resultBaseXp
+× contexto
+× dificuldade
+× qualidade do resultado
+× repetição
+× Cansaço
+× modificadores
+```
+
+### Contextos iniciais
+
+```text
+FREE_PRACTICE       0,50
+STATIC_TARGET       0,65
+TRAINING_DUMMY      0,80
+CONTROLLED_EXERCISE 0,75
+STRUCTURED_TRAINING 1,00
+SPARRING            1,10
+REAL_CHALLENGE      1,25
+EXTREME_CHALLENGE   1,40
+```
+
+### Repetição semanticamente idêntica
+
+```text
+1–10   → 1,00
+11–25  → 0,90
+26–50  → 0,80
+51–100 → 0,70
+101–200 → 0,60
+201+   → 0,50
+```
+
+O piso de repetição não elimina XP; custos e tempo permanecem integrais.
+
+### Curvas
+
+```text
+ActorXpToNext(L) = 100 + 50 × (L - 1) + 10 × (L - 1)²
+MasteryXpToNext(L) = 20 + 4 × L + floor(L² ÷ 10)
+SkillXpToNext(L) = 30 + 6 × L + floor(L² ÷ 8)
+ProficiencyXpToNext(L) = 25 + 5 × L + floor(L² ÷ 9)
+ProfessionXpToNext(L) = 50 + 8 × L + floor(L² ÷ 6)
+AttributeTrainingXpToIncrease(A) = 50 + 5 × A + 2 × A²
+```
+
+### Exemplo canônico
+
+```text
+10 Bolas de Fogo ao alto
+→ 30 XP de domínio
+→ 12 XP de Piromancia
+→ 7,50 XP de atributos
+→ 3 XP geral por uso
+```
+
+Esses números são baseline implementável e ainda precisam de simulação, não rediscussão conceitual antes da primeira bateria de testes.
+
+## 11. Nível geral
 
 - nível não depende somente de matar inimigos;
-- uso, objetivos, treino, missões, descobertas, produção e marcos podem gerar XP geral;
+- uso, objetivos, treino, missões, descobertas, produção e marcos geram XP geral;
 - nível libera capacidade de crescimento primário;
 - domínio de técnicas e perícias possui progressão própria;
 - NPC materializado deve respeitar orçamento e capacidade compatíveis com seu nível;
-- curvas finais ainda precisam de simulação.
+- nível geral não possui limite rígido nesta versão;
+- domínio, perícia, proficiência e profissão usam níveis de `1` a `100`.
 
-## 11. Habilidades e magias
+## 12. Habilidades e magias
 
 Cada ator possui domínio individual da definição conhecida.
 
@@ -247,16 +337,16 @@ estabilidade
 
 Nem toda habilidade melhora todos os campos.
 
-Crescimento pode combinar:
+Escalonamento gradual usa:
 
-- pequenos aumentos graduais;
-- marcos;
-- especializações;
-- novas opções.
+```text
+normalizedMastery = (masteryLevel - 1) ÷ 99
+bonus = maxBonusAt100 × normalizedMastery ^ curveExponent
+```
 
-## 12. Vigor, Cansaço e sono
+Crescimento também pode combinar marcos, especializações e novas opções.
 
-Decisões:
+## 13. Vigor, Cansaço e sono
 
 ```text
 Vigor   → esforço imediato
@@ -274,7 +364,18 @@ Sono    → pressão de vigília e recuperação prolongada
 - sono avança o tempo e recupera conforme duração e qualidade;
 - comida e água serão integradas depois.
 
-Faixas provisórias de vigília para balanceamento:
+Multiplicadores iniciais de aprendizagem:
+
+```text
+RESTED        1,00
+TIRED         0,95
+FATIGUED      0,85
+EXHAUSTED     0,70
+CRITICAL      0,50
+COLLAPSE_RISK 0,25
+```
+
+Faixas provisórias de vigília:
 
 ```text
 0–16h  normal
@@ -287,7 +388,7 @@ Faixas provisórias de vigília para balanceamento:
 
 Essas faixas são regra de jogo, não orientação médica.
 
-## 13. Atores
+## 14. Atores
 
 - modelo universal para pessoas, animais, monstros, criaturas, espíritos, construtos, invocações e jogadores;
 - natureza, espécie, arquétipo, papel, facção e controle são separados;
@@ -298,7 +399,7 @@ Essas faixas são regra de jogo, não orientação médica.
 - atores persistentes podem acumular progressão;
 - inimigos descartáveis não precisam persistir ganhos após a sessão.
 
-## 14. Itens, qualidade e inventário
+## 15. Itens, qualidade e inventário
 
 ```text
 Definição Comum de referência
@@ -314,7 +415,7 @@ Definição Comum de referência
 - drops naturais e itens carregados são separados;
 - reservas impedem uso concorrente.
 
-## 15. Combate
+## 16. Combate
 
 - posições e alcance em metros;
 - linha do tempo contínua em ticks;
@@ -326,9 +427,9 @@ Definição Comum de referência
 - widget anima até a próxima decisão;
 - ações criativas continuam pelo GPT;
 - cada evento pode produzir progressão;
-- inimigos fortes podem aumentar XP por dificuldade sem deixar de aplicar o risco normal.
+- inimigos fortes aumentam XP por dificuldade sem remover o risco normal.
 
-## 16. Economia e fabricação
+## 17. Economia e fabricação
 
 - moeda `CROWN`;
 - definição guarda preço Comum;
@@ -339,7 +440,7 @@ Definição Comum de referência
 - qualidade, consumo e XP são autoritativos;
 - prática profissional pode evoluir perícia, profissão, receita e atributos aplicáveis.
 
-## 17. Pendências bloqueadoras próximas
+## 18. Pendências bloqueadoras próximas
 
 1. Sistema de Condições e Efeitos.
 2. Encontros, objetivos e transições completas.
@@ -352,24 +453,23 @@ Definição Comum de referência
 9. Comportamentos de NPCs.
 10. Comida, água e sobrevivência detalhada.
 
-## 18. Pendências de progressão e desgaste
+## 19. Pendências de calibração
 
-- curvas de XP por trilha;
-- peso da XP geral produzida por uso;
-- custo de atributo por valor atual;
-- multiplicadores de contexto e dificuldade;
-- marcos de habilidades e magias;
-- custo de Vigor por ação;
+As curvas iniciais estão definidas. Ainda faltam simulações para:
+
+- velocidade real de progressão `1 → 20`, `1 → 50` e `1 → 100`;
+- XP de cura, suporte, controle e atividades sociais;
+- custo de Vigor por categoria de ação;
 - regeneração de Vigor;
-- geração de Cansaço;
-- penalidades por estágio;
-- curva de sono;
-- recuperação por descanso;
+- geração de Cansaço por ação;
+- recuperação por descanso e sono;
 - treino com instrutor;
 - progressão de companheiros;
+- fabricação por etapa e qualidade;
+- migração quando uma curva for revisada;
 - comportamento após morte, rollback ou recarga.
 
-## 19. Pendências técnicas
+## 20. Pendências técnicas
 
 - auditar backend atual;
 - definir migrations expand/contract;
@@ -384,13 +484,16 @@ Definição Comum de referência
 - testar seleção de ferramenta pelo GPT;
 - testar chamadas diretas do widget;
 - implementar resolução de atividades longas em lote;
-- validar disponibilidade da plataforma por plano/workspace.
+- validar disponibilidade da plataforma por plano ou workspace.
 
-## 20. Primeiro recorte vertical
+## 21. Primeiro recorte vertical
 
 ```text
 login
 → carregar campanha
+→ visualizar progressão
+→ executar treino de Bola de Fogo
+→ aplicar curvas e Cansaço
 → abrir mapa
 → viajar
 → iniciar combate
@@ -402,12 +505,11 @@ login
 → abrir loot
 → transferir itens
 → narrar desfecho
-→ realizar treino simples
 → descansar
 → retomar após recarregar
 ```
 
-## 21. Roadmap do Codex
+## 22. Roadmap do Codex
 
 A implementação deve seguir:
 

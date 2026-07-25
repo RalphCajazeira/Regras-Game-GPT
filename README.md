@@ -126,7 +126,7 @@ Bola de Fogo custa 4
 → 30 XP de domínio
 → 12 XP de Piromancia
 → 7,50 XP distribuída entre atributos
-→ 3 XP geral por uso
+→ 3 XP geral no total
 ```
 
 Custos, tempo, Cansaço e eventos ambientais continuam integrais.

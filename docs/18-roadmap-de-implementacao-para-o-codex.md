@@ -1,6 +1,6 @@
 # Roadmap de Implementação para o Codex
 
-**Versão da proposta:** `implementation-roadmap-v0.2`  
+**Versão da proposta:** `implementation-roadmap-v0.3`  
 **Status:** pronto para auditoria técnica
 
 ## 1. Objetivo
@@ -19,7 +19,15 @@ Antes de qualquer alteração:
 4. auditar o repositório do jogo;
 5. comparar regra, código, banco, APIs, testes e ambientes;
 6. preservar funcionalidades corretas;
-7. identificar incompatibilidades com progressão por uso e Cansaço.
+7. identificar incompatibilidades com progressão por uso, curvas de XP e Cansaço.
+
+Documentos obrigatórios para progressão:
+
+```text
+docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md
+docs/20-vigor-cansaco-sono-e-recuperacao.md
+docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md
+```
 
 ## 3. Princípio de migração
 
@@ -47,7 +55,8 @@ Entregáveis:
 - roadmap em PRs pequenos;
 - primeiro recorte vertical;
 - matriz de testes;
-- diagnóstico de atributos, XP, Vigor, tempo e encontros atuais.
+- diagnóstico de atributos, XP, Vigor, tempo e encontros atuais;
+- comparação das curvas atuais com `progression-curves-v0.1`.
 
 Não executar migration destrutiva antes de concluir a auditoria.
 
@@ -71,7 +80,63 @@ Critérios:
 - rollback total em erro bloqueante;
 - conteúdo existente é reutilizado.
 
-## 6. Fase 2 — Núcleo de progressão
+## 6. Fase 2 — Políticas numéricas de progressão
+
+Implementar antes das entidades persistentes para evitar fórmulas espalhadas.
+
+Objetivos:
+
+- criar módulo versionado `progression-policy`;
+- implementar `xpMilli` com `1 XP = 1.000 xpMilli`;
+- implementar fórmula de execução e resultado;
+- implementar multiplicadores de contexto;
+- implementar dificuldade relativa;
+- implementar multiplicadores de execução e resultado;
+- implementar repetição por `practiceFingerprint`;
+- implementar eficiência por Cansaço;
+- implementar curvas de ator, domínio, perícia, proficiência, profissão e atributo;
+- implementar escalonamento normalizado por domínio;
+- carregar tudo por `progression-curves-v0.1`.
+
+Fórmulas obrigatórias:
+
+```text
+ActorXpToNext(L) = 100 + 50 × (L - 1) + 10 × (L - 1)²
+MasteryXpToNext(L) = 20 + 4 × L + floor(L² ÷ 10)
+SkillXpToNext(L) = 30 + 6 × L + floor(L² ÷ 8)
+ProficiencyXpToNext(L) = 25 + 5 × L + floor(L² ÷ 9)
+ProfessionXpToNext(L) = 50 + 8 × L + floor(L² ÷ 6)
+AttributeTrainingXpToIncrease(A) = 50 + 5 × A + 2 × A²
+```
+
+Testes obrigatórios de referência:
+
+```text
+Actor nível 1 → 100 XP
+Actor nível 5 → 460 XP
+Actor nível 10 → 1.360 XP
+Actor nível 20 → 4.660 XP
+Actor nível 50 → 26.560 XP
+
+Domínio nível 1 → 24 XP
+Domínio nível 20 → 140 XP
+Domínio nível 99 → 1.396 XP
+
+Atributo 5 → 125 XP
+Atributo 10 → 300 XP
+Atributo 20 → 950 XP
+Atributo 50 → 5.300 XP
+```
+
+Critérios:
+
+- aritmética determinística;
+- frações pequenas preservadas;
+- configuração não duplicada no widget;
+- mudança de versão reproduzível;
+- nenhuma constante crítica espalhada em controllers.
+
+## 7. Fase 3 — Núcleo persistente de progressão
 
 Objetivos:
 
@@ -83,6 +148,7 @@ Objetivos:
 - implementar perícias e proficiências;
 - implementar domínio individual de habilidade e magia;
 - implementar profissão;
+- implementar marcos;
 - impedir duplicação por idempotência.
 
 Entidades conceituais:
@@ -96,19 +162,22 @@ ContentMastery
 ProfessionProgression
 ProgressionEvent
 ProgressionMilestone
+ProgressionRuleSnapshot
 ```
 
 Critérios:
 
 - ação válida pode produzir múltiplas trilhas de XP;
-- falha válida pode gerar XP parcial;
+- falha válida gera XP parcial;
 - comando rejeitado não gera XP;
 - receber dano não concede Esquiva sem tentativa;
 - repetição idempotente não duplica XP;
 - nível libera capacidade primária;
-- atributos consomem capacidade conforme treinamento.
+- atributos consomem capacidade conforme treinamento;
+- XP excedente é preservada;
+- equipamentos não alteram custo permanente do atributo.
 
-## 7. Fase 3 — Vigor, Cansaço, tempo e sono
+## 8. Fase 4 — Vigor, Cansaço, tempo e sono
 
 Objetivos:
 
@@ -117,6 +186,7 @@ Objetivos:
 - aplicar custo de Vigor por ação;
 - gerar Cansaço por esforço e vigília;
 - implementar estágios de Cansaço;
+- implementar multiplicadores de aprendizagem por estágio;
 - implementar `awakeMinutes` e `sleepPressure`;
 - implementar descanso e sono;
 - integrar passagem de tempo;
@@ -126,12 +196,12 @@ Critérios:
 
 - treino avança o tempo;
 - Mana não elimina Cansaço de conjuração;
-- Cansaço reduz recuperação e desempenho;
+- Cansaço reduz recuperação, desempenho e aprendizagem;
 - descanso recupera Vigor sem zerar pressão de sono indevidamente;
 - sono reduz pressão e Cansaço conforme duração e qualidade;
 - atividade repetida encerra por recurso, risco ou condição de parada.
 
-## 8. Fase 4 — Atividades e treinamento em lote
+## 9. Fase 5 — Atividades e treinamento em lote
 
 Objetivos:
 
@@ -141,6 +211,7 @@ Objetivos:
 - suportar sparring;
 - suportar estudo e meditação;
 - aplicar custos e XP por repetição;
+- atualizar repetição e Cansaço entre eventos;
 - interromper por eventos e limites.
 
 Comandos conceituais:
@@ -150,24 +221,31 @@ TRAIN_ACTION_REPETITION
 TRAIN_UNTIL_RESOURCE_LIMIT
 TRAIN_FOR_DURATION
 TRAIN_UNTIL_FATIGUE
+TRAIN_UNTIL_HEALTH_THRESHOLD
 SPARRING_SESSION
 PHYSICAL_CONDITIONING
 STUDY_SESSION
 MEDITATION_SESSION
 ```
 
-Cenário obrigatório:
+Cenário canônico obrigatório:
 
 ```text
 40 Mana
 Bola de Fogo custa 4
-→ backend resolve até 10 conjurações quando possível
+contexto FREE_PRACTICE
+→ backend resolve 10 conjurações quando possível
+→ 30 XP de domínio
+→ 12 XP de Piromancia
+→ 7,50 XP de atributos
+→ 3 XP geral por uso
 → aplica tempo e Cansaço
-→ concede XP em todas as trilhas aplicáveis
-→ encerra pelo primeiro limite atingido
+→ encerra pelo primeiro limite
 ```
 
-## 9. Fase 5 — MCP Server e Apps SDK
+O resultado só deve divergir quando outra regra explicitamente aplicável alterar custo, execução, Cansaço, repetição ou interrupção.
+
+## 10. Fase 6 — MCP Server e Apps SDK
 
 Objetivos:
 
@@ -199,11 +277,11 @@ cancelSession
 
 Treinamento usa ferramentas existentes, não uma ferramenta por modalidade.
 
-## 10. Fase 6 — Autenticação e isolamento
+## 11. Fase 7 — Autenticação e isolamento
 
 Objetivos:
 
-- OAuth/token;
+- OAuth ou token;
 - vínculo do subject com usuário interno;
 - autorização por campanha e ator;
 - proteção de dados do Mestre;
@@ -217,7 +295,7 @@ Testes:
 - token expirado recuperável;
 - logs sem credenciais.
 
-## 11. Fase 7 — Widget somente leitura
+## 12. Fase 8 — Widget somente leitura
 
 Primeira UI:
 
@@ -236,20 +314,23 @@ Primeira UI:
 
 O widget ainda não executa escrita nesta fase.
 
-## 12. Fase 8 — Widget de treino
+## 13. Fase 9 — Widget de treino
 
 Objetivos:
 
 - selecionar ação ou atividade;
 - escolher alvo de treino;
 - escolher duração ou repetições;
-- mostrar Mana, Vigor, Vida, Cansaço e tempo previstos;
+- mostrar Mana, Vigor, Vida, Cansaço, tempo e XP estimados;
 - configurar condições de parada;
 - confirmar atividade;
-- exibir resumo de progressão;
+- exibir XP real por trilha;
+- exibir multiplicadores aplicados;
 - solicitar narração somente para marcos.
 
-## 13. Fase 9 — Mapa e passagem do tempo
+O widget usa a política carregada apenas para prévia. O backend recalcula oficialmente.
+
+## 14. Fase 10 — Mapa e passagem do tempo
 
 Objetivos:
 
@@ -258,6 +339,7 @@ Objetivos:
 - animação de posição;
 - `worldTime` oficial;
 - Cansaço e pressão de sono durante viagem;
+- progressão de atividade aplicável;
 - evento durante deslocamento;
 - diretiva narrativa.
 
@@ -265,10 +347,10 @@ Critérios:
 
 - widget não altera localização sozinho;
 - conflito de versão é recuperável;
-- idempotência não duplica tempo;
+- idempotência não duplica tempo ou XP;
 - viagem afeta recursos e Cansaço.
 
-## 14. Fase 10 — Combate visual mínimo
+## 15. Fase 11 — Combate visual mínimo
 
 Objetivos:
 
@@ -279,15 +361,23 @@ Objetivos:
 - ataque básico;
 - custo de Vigor;
 - progressão por evento;
+- dificuldade personalizada;
 - janela de decisão;
 - resolução até `NEXT_PLAYER_DECISION`;
 - animação por eventos;
 - fim de combate;
 - recuperação da sessão.
 
-Não implementar inicialmente todos os tipos de magia ou condição.
+Cenários obrigatórios:
 
-## 15. Fase 11 — Loot e inventário interativo
+- erro válido concede XP de execução;
+- acerto acrescenta XP de resultado;
+- inimigo mais fraco reduz dificuldade;
+- inimigo equivalente usa multiplicador `1,00`;
+- inimigo com ameaça entre `1,50` e `2,00` usa `1,35`;
+- inimigo continua agindo normalmente, independentemente da XP maior.
+
+## 16. Fase 12 — Loot e inventário interativo
 
 Objetivos:
 
@@ -299,7 +389,7 @@ Objetivos:
 - peso e slots;
 - consumidos não reaparecem.
 
-## 16. Fase 12 — Fluxo criativo pelo GPT
+## 17. Fase 13 — Fluxo criativo pelo GPT
 
 Objetivos:
 
@@ -322,7 +412,7 @@ correr até Cansaço definido
 meditar antes de dormir
 ```
 
-## 17. Fase 13 — Narração seletiva
+## 18. Fase 14 — Narração seletiva
 
 Objetivos:
 
@@ -333,7 +423,7 @@ Objetivos:
 - não poluir contexto com cada clique;
 - narrar nível, atributo, domínio e colapso quando relevante.
 
-## 18. Fases posteriores
+## 19. Fases posteriores
 
 ### Comércio e fabricação
 
@@ -357,12 +447,12 @@ Objetivos:
 
 - revisar definições e instâncias;
 - histórico e versões;
-- migrações explícitas;
+- migrations explícitas;
 - dashboard de sessões e progressão;
 - reutilizar serviços do App;
 - avaliar GraphQL para consultas flexíveis.
 
-## 19. Estratégia de branches e PRs
+## 20. Estratégia de branches e PRs
 
 - trabalhar sobre `develop` do jogo;
 - uma fase ou subfase por branch curta;
@@ -371,17 +461,18 @@ Objetivos:
 - não remover compatibilidade antes do novo fluxo estar validado;
 - registrar regra e commit implementado em cada PR.
 
-## 20. Testes obrigatórios
+## 21. Testes obrigatórios
 
 ### Unidade
 
-- fórmulas;
-- progressão;
-- atributos;
+- todas as curvas nos níveis de referência;
+- fórmulas de execução e resultado;
+- multiplicadores de contexto;
+- dificuldade relativa;
+- repetição;
 - Cansaço;
-- sono;
-- validadores;
-- autorização;
+- distribuição entre trilhas;
+- atributos e capacidade;
 - idempotência;
 - classificação narrativa.
 
@@ -403,21 +494,22 @@ Objetivos:
 login
 → carregar campanha
 → visualizar progressão
-→ lançar magia em treino até acabar Mana
-→ receber XP e Cansaço
+→ lançar Bola de Fogo dez vezes em prática livre
+→ validar 30 / 12 / 7,50 / 3 XP
+→ receber Cansaço
 → descansar
 → abrir mapa
 → viajar
 → iniciar combate
 → mover e atacar
-→ receber XP de ação e defesa aplicável
+→ receber XP de execução e resultado
 → derrotar
 → coletar loot
 → receber narração
 → reabrir sessão
 ```
 
-## 21. Critérios para não avançar
+## 22. Critérios para não avançar
 
 Não avançar quando:
 
@@ -431,23 +523,25 @@ Não avançar quando:
 - treino duplicar XP;
 - passagem de tempo não afetar Cansaço;
 - ação rejeitada conceder XP;
-- dano passivo conceder Esquiva sem tentativa.
+- dano passivo conceder Esquiva sem tentativa;
+- frações de XP forem perdidas;
+- dez Bolas de Fogo não reproduzirem o baseline sem regra modificadora explícita.
 
-## 22. Primeiro prompt recomendado ao Codex
+## 23. Primeiro prompt recomendado ao Codex
 
 ```text
 Audite o repositório RalphCajazeira/cronicas-de-outro-mundo na branch develop contra o commit atual de RalphCajazeira/Regras-Game-GPT.
 
 Considere como arquitetura canônica ChatGPT App/Plugin + Apps SDK + MCP Tools + Widget JS + serviços de domínio + backend/PostgreSQL.
 
-Considere também como regras canônicas a progressão por uso, capacidade de crescimento primário, domínio individual de habilidades e magias, treino em lote, Vigor, Cansaço, passagem de tempo, pressão de sono e recuperação.
+Considere também como regras canônicas a progressão por uso, progression-curves-v0.1, XP em xpMilli, capacidade de crescimento primário, domínio individual, treino em lote, Vigor, Cansaço, passagem de tempo, pressão de sono e recuperação.
 
 Mapeie o que já existe e pode ser reaproveitado, o que conflita, o que falta e quais migrations seriam necessárias. Proponha um roadmap expand/contract em PRs pequenos.
 
 Não faça reescrita ampla nem migration destrutiva antes de apresentar auditoria, plano, evidências, testes e riscos.
 ```
 
-## 23. Resultado esperado da auditoria
+## 24. Resultado esperado da auditoria
 
 - baseline e commits;
 - árvore limpa ou alterações explicadas;
@@ -457,7 +551,7 @@ Não faça reescrita ampla nem migration destrutiva antes de apresentar auditori
 - plano MCP;
 - plano de widget;
 - plano de autenticação;
-- plano de progressão;
+- plano de progressão e curvas;
 - plano de Cansaço e tempo;
 - ordem de PRs;
 - critérios de aceite;

@@ -106,6 +106,31 @@ Treinamento não exige combate. Exemplos válidos:
 - estudo, meditação ou fabricação;
 - treino criativo interpretado pelo GPT.
 
+### Baseline numérico
+
+```text
+XP armazenada em milésimos
+→ contexto, dificuldade, execução, resultado, repetição e Cansaço
+→ distribuição entre trilhas
+→ curvas próprias para ator, domínio, perícia, proficiência, profissão e atributo
+```
+
+As fórmulas iniciais estão em `docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md`.
+
+Exemplo canônico:
+
+```text
+40 Mana
+Bola de Fogo custa 4
+→ 10 conjurações em prática livre
+→ 30 XP de domínio
+→ 12 XP de Piromancia
+→ 7,50 XP distribuída entre atributos
+→ 3 XP geral por uso
+```
+
+Custos, tempo, Cansaço e eventos ambientais continuam integrais.
+
 ## Vigor, Cansaço e sono
 
 ```text
@@ -171,6 +196,7 @@ Toda mutação crítica usa idempotência, `stateVersion`, versões de regras e 
 - [`docs/11-sistema-de-inventario-itens-drops-e-saque.md`](docs/11-sistema-de-inventario-itens-drops-e-saque.md)
 - [`docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md`](docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md): progressão por uso, treino livre, domínio, níveis e atributos.
 - [`docs/20-vigor-cansaco-sono-e-recuperacao.md`](docs/20-vigor-cansaco-sono-e-recuperacao.md): esforço imediato, desgaste prolongado, vigília, sono e recuperação.
+- [`docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md`](docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md): fórmulas, multiplicadores, curvas e simulações iniciais de progressão.
 
 ### Arquitetura e integração
 
@@ -208,6 +234,7 @@ widget-gameplay-v0.1
 security-v0.1
 implementation-roadmap-v0.2
 progression-v0.1
+progression-curves-v0.1
 fatigue-v0.1
 integration-v1.0
 ```
@@ -244,6 +271,7 @@ Seguir:
 - distâncias em metros;
 - combate em ticks;
 - moeda `CROWN`;
+- XP interna em `xpMilli`, com `1 XP = 1.000 xpMilli`;
 - backend como autoridade oficial;
 - widget sem regra autoritativa duplicada;
 - GPT não inventa recursos mecânicos ausentes;

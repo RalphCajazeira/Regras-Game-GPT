@@ -1,47 +1,112 @@
 # Regras Game GPT
 
-Base de conhecimento para um RPG conduzido pelo GPT como Mestre narrativo, com widget interativo dentro do ChatGPT, ferramentas MCP, backend autoritativo e banco persistente.
+Base canônica de produto, domínio e arquitetura para o RPG narrativo **Crônicas de Outro Mundo**.
 
-## Arquitetura canônica
+Este repositório define **o que o jogo deve ser**, quais regras e decisões são oficiais e qual arquitetura-alvo deve orientar a evolução incremental do repositório executável `RalphCajazeira/cronicas-de-outro-mundo`.
+
+Ele não é a fonte isolada para afirmar o que já está implantado. O estado real de implementação deve ser confirmado no código, banco, ambientes, testes e documentos vivos do repositório do jogo.
+
+## Fontes de verdade
+
+Quando houver conflito, priorizar:
+
+1. ambiente, banco ou serviço atual;
+2. repositório, branch, arquivos e Git atuais;
+3. lint, typecheck, testes, build e CI atuais;
+4. contratos e documentação versionada no repositório do jogo;
+5. este repositório de regras canônicas;
+6. relatórios anteriores;
+7. memória e hipóteses.
+
+Nunca registrar hipótese como funcionalidade implantada.
+
+## Arquitetura canônica atual
 
 ```text
-GPT
-→ compreensão da intenção, criatividade, diálogo e narração
+GPT personalizado
+→ Instructions + Knowledge + App MCP
+→ intenção, criatividade, diálogo, interpretação e narração
 
-Widget JS
-→ ficha, mapas, combate, inventário, loot, comércio, treino e prévias
+Extensão Chromium Manifest V3
+→ frontend principal do jogador
+→ botão flutuante, overlay/full-page e página própria
+→ ficha, inventário, equipamentos, habilidades, mapa, combate e demais controles
 
-MCP Server / Apps SDK
-→ ponte tipada entre ChatGPT e serviços do jogo
+App MCP
+→ ponte tipada entre o GPT e os serviços do jogo
+→ tools oficiais, autenticação e contratos públicos
 
 Backend
-→ validação, rolagens e cálculos oficiais, resolução, progressão e persistência
+→ autorização, validação, rolagens, cálculos, resolução, progressão e persistência
 
 PostgreSQL
-→ estado durável, histórico, definições, instâncias e sessões
+→ estado durável, histórico, definições, instâncias, eventos e sessões
+
+Widget do ChatGPT
+→ fallback leve, bootstrap, diagnóstico e compatibilidade
+→ não é mais o frontend principal
+
+Actions/OpenAPI no GPT
+→ legado temporário durante a migração
+→ não farão parte do GPT personalizado definitivo
 ```
 
-A experiência principal será um ChatGPT App/Plugin com Apps SDK, MCP e widgets. A arquitetura anterior de Custom GPT com Actions/OpenAPI permanece apenas como legado, fallback textual ou compatibilidade de migração.
+A decisão detalhada está em [`docs/22-arquitetura-gpt-extensao-backend.md`](docs/22-arquitetura-gpt-extensao-backend.md).
+
+## Responsabilidades
+
+### GPT personalizado
+
+- manter identidade, tom e comportamento do Mestre;
+- interpretar ações livres e intenções criativas;
+- conduzir diálogos e narrativa;
+- usar as tools MCP corretas;
+- narrar somente resultados oficiais quando houver mecânica;
+- nunca inventar recursos, custos, rolagens ou efeitos não confirmados pelo backend.
+
+### Extensão
+
+- ser o frontend principal e persistente;
+- apresentar estado oficial por projeções autorizadas;
+- oferecer navegação, prévias, confirmações e ações mecânicas;
+- atualizar automaticamente quando o backend mudar;
+- manter apenas estado visual efêmero;
+- não ler ou copiar a conversa do ChatGPT;
+- não capturar cookies, tokens ou APIs internas não documentadas do ChatGPT.
+
+### Backend
+
+- ser a autoridade mecânica e de autorização;
+- derivar identidade do token;
+- aplicar `stateVersion`, idempotência e transações;
+- proteger dados `MASTER_ONLY`;
+- publicar projeções públicas allowlisted;
+- persistir eventos e consequências oficiais;
+- notificar a extensão sobre invalidações, sem transformar o canal realtime em fonte de verdade.
 
 ## Fluxos
 
-### Ação comum
+### Ação mecânica comum
 
 ```text
-jogador clica
-→ widget mostra prévia
-→ backend resolve oficialmente
-→ widget atualiza
-→ GPT narra apenas quando necessário
+jogador usa a extensão
+→ extensão solicita prévia quando aplicável
+→ jogador confirma
+→ backend autoriza, resolve e persiste
+→ backend publica evento de invalidação
+→ extensão recarrega as projeções afetadas
+→ GPT narra somente quando necessário
 ```
 
 ### Ação criativa
 
 ```text
-jogador escreve
-→ GPT interpreta
+jogador escreve ao GPT
+→ GPT interpreta a intenção
+→ App MCP envia intenção estruturada
 → backend valida e resolve
-→ GPT narra
+→ extensão recebe a atualização oficial
+→ GPT narra o resultado confirmado
 ```
 
 ### Criação em lote
@@ -61,11 +126,24 @@ jogador declara treino ou executa ação
 → backend aplica tempo, custos e consequências
 → gera eventos de aprendizagem
 → evolui domínio, perícias, atributos e nível
-→ widget atualiza barras
+→ extensão atualiza barras e estado
 → GPT narra somente marcos importantes
 ```
 
 Toda ação mecanicamente executada pode ensinar, inclusive prática livre, alvo estático, boneco, sparring ou combate real. O contexto altera a XP, mas repetição válida não recebe zero apenas por ser repetição.
+
+## Atualização automática da extensão
+
+O canal em tempo real será usado como notificação, não como estado oficial.
+
+```text
+transação confirmada no PostgreSQL
+→ backend publica evento pequeno
+→ extensão invalida as consultas afetadas
+→ extensão busca novamente o estado oficial
+```
+
+A implementação pode começar com recarga após mutações e polling controlado, evoluindo para SSE ou WebSocket autenticado conforme a frequência e a necessidade de combate/mapa.
 
 ## Mapa e combate
 
@@ -82,7 +160,7 @@ mapa de exploração
 → retorno à exploração
 ```
 
-O motor utiliza tempo contínuo em ticks; o widget apresenta decisões semelhantes a turnos.
+O motor utiliza tempo contínuo em ticks; a extensão apresenta decisões semelhantes a turnos.
 
 ## Progressão por uso
 
@@ -115,7 +193,7 @@ XP armazenada em milésimos
 → curvas próprias para ator, domínio, perícia, proficiência, profissão e atributo
 ```
 
-As fórmulas iniciais estão em `docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md`.
+As fórmulas iniciais estão em [`docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md`](docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md).
 
 Exemplo canônico:
 
@@ -139,7 +217,7 @@ Cansaço → desgaste acumulado
 Sono    → recuperação prolongada e pressão de vigília
 ```
 
-Tempo, Mana, Vigor, Vida, Cansaço, ferimentos e risco são os limites naturais do treinamento. O backend não impede uma escolha perigosa; aplica suas consequências.
+Tempo, Mana, Vigor, Vida, Cansaço, ferimentos e risco são limites naturais do treinamento. O backend não impede uma escolha perigosa; aplica suas consequências.
 
 ## Regras canônicas importantes
 
@@ -174,12 +252,33 @@ clientRef → referência local em bundle
 ### Estado
 
 ```text
-backend = autoridade
-widget = estado visual efêmero
-GPT = interpretação e narrativa
+backend  = autoridade oficial
+extensão = estado visual efêmero e frontend principal
+widget   = fallback
+GPT      = interpretação e narrativa
 ```
 
 Toda mutação crítica usa idempotência, `stateVersion`, versões de regras e autorização derivada do token.
+
+## Governança de estado e roadmap
+
+A separação obrigatória é:
+
+```text
+Regras-Game-GPT
+→ produto, domínio, arquitetura-alvo e decisões canônicas
+
+cronicas-de-outro-mundo
+→ estado implementado, evidências, rollout, roadmap executável e backlog
+```
+
+O processo está definido em [`docs/23-governanca-estado-roadmap-e-mudancas.md`](docs/23-governanca-estado-roadmap-e-mudancas.md).
+
+No repositório executável, os documentos vivos são:
+
+- `docs/ai/project/PROJECT_STATE.md`;
+- `docs/ai/project/ROADMAP.md`;
+- `docs/ai/project/DECISIONS.md`.
 
 ## Documentos
 
@@ -194,21 +293,24 @@ Toda mutação crítica usa idempotência, `stateVersion`, versões de regras e 
 - [`docs/09-sistema-de-fabricacao-e-qualidade.md`](docs/09-sistema-de-fabricacao-e-qualidade.md)
 - [`docs/10-sistema-de-atores-definicoes-e-instancias.md`](docs/10-sistema-de-atores-definicoes-e-instancias.md)
 - [`docs/11-sistema-de-inventario-itens-drops-e-saque.md`](docs/11-sistema-de-inventario-itens-drops-e-saque.md)
-- [`docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md`](docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md): progressão por uso, treino livre, domínio, níveis e atributos.
-- [`docs/20-vigor-cansaco-sono-e-recuperacao.md`](docs/20-vigor-cansaco-sono-e-recuperacao.md): esforço imediato, desgaste prolongado, vigília, sono e recuperação.
-- [`docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md`](docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md): fórmulas, multiplicadores, curvas e simulações iniciais de progressão.
+- [`docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md`](docs/19-progressao-niveis-experiencia-treinamento-e-dominio.md)
+- [`docs/20-vigor-cansaco-sono-e-recuperacao.md`](docs/20-vigor-cansaco-sono-e-recuperacao.md)
+- [`docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md`](docs/21-curvas-numericas-de-xp-e-balanceamento-inicial.md)
 
-### Arquitetura e integração
+### Arquitetura, integração e governança
 
-- [`docs/04-integracao-gpt-backend.md`](docs/04-integracao-gpt-backend.md): integração canônica App/Widget/MCP/Backend.
-- [`docs/05-decisoes-e-pendencias.md`](docs/05-decisoes-e-pendencias.md): decisões consolidadas e lacunas.
-- [`docs/12-contratos-operacionais-mcp-erros-e-recuperacao.md`](docs/12-contratos-operacionais-mcp-erros-e-recuperacao.md): ferramentas MCP, contratos, erros e recuperação.
-- [`docs/13-criacao-validacao-e-materializacao-em-lote.md`](docs/13-criacao-validacao-e-materializacao-em-lote.md): bundles, UUID, `clientRef`, validação e materialização.
-- [`docs/14-sessoes-do-mestre-resolucao-local-checkpoints-e-replay.md`](docs/14-sessoes-do-mestre-resolucao-local-checkpoints-e-replay.md): orquestração do Mestre, sessões, checkpoints e replay.
-- [`docs/15-arquitetura-chatgpt-app-widget-mcp-e-backend.md`](docs/15-arquitetura-chatgpt-app-widget-mcp-e-backend.md): responsabilidades de cada componente e fluxos principais.
-- [`docs/16-widget-mapas-combate-tempo-e-loot.md`](docs/16-widget-mapas-combate-tempo-e-loot.md): experiência visual jogável.
-- [`docs/17-autenticacao-identidade-seguranca-e-observabilidade.md`](docs/17-autenticacao-identidade-seguranca-e-observabilidade.md): OAuth, autorização, privacidade e tracing.
-- [`docs/18-roadmap-de-implementacao-para-o-codex.md`](docs/18-roadmap-de-implementacao-para-o-codex.md): fases e primeiro prompt de auditoria.
+- [`docs/04-integracao-gpt-backend.md`](docs/04-integracao-gpt-backend.md)
+- [`docs/05-decisoes-e-pendencias.md`](docs/05-decisoes-e-pendencias.md): decisões anteriores; prevalece o documento 22 quando houver conflito de superfície visual.
+- [`docs/12-contratos-operacionais-mcp-erros-e-recuperacao.md`](docs/12-contratos-operacionais-mcp-erros-e-recuperacao.md)
+- [`docs/13-criacao-validacao-e-materializacao-em-lote.md`](docs/13-criacao-validacao-e-materializacao-em-lote.md)
+- [`docs/14-sessoes-do-mestre-resolucao-local-checkpoints-e-replay.md`](docs/14-sessoes-do-mestre-resolucao-local-checkpoints-e-replay.md)
+- [`docs/15-arquitetura-chatgpt-app-widget-mcp-e-backend.md`](docs/15-arquitetura-chatgpt-app-widget-mcp-e-backend.md): referência histórica da fase widget-first.
+- [`docs/16-widget-mapas-combate-tempo-e-loot.md`](docs/16-widget-mapas-combate-tempo-e-loot.md): requisitos visuais reaproveitáveis pela extensão.
+- [`docs/17-autenticacao-identidade-seguranca-e-observabilidade.md`](docs/17-autenticacao-identidade-seguranca-e-observabilidade.md)
+- [`docs/18-roadmap-de-implementacao-para-o-codex.md`](docs/18-roadmap-de-implementacao-para-o-codex.md): baseline histórico de migração.
+- [`docs/22-arquitetura-gpt-extensao-backend.md`](docs/22-arquitetura-gpt-extensao-backend.md): arquitetura canônica atual.
+- [`docs/23-governanca-estado-roadmap-e-mudancas.md`](docs/23-governanca-estado-roadmap-e-mudancas.md): manutenção de estado, decisões e backlog.
+- [`docs/24-roadmap-extensao-e-jogabilidade.md`](docs/24-roadmap-extensao-e-jogabilidade.md): ordem atual de entrega da experiência jogável.
 
 ### Legado
 
@@ -229,14 +331,13 @@ inventory-v0.2
 mcp-contracts-v0.1
 bundles-v0.2
 master-runtime-v0.2
-app-architecture-v0.1
-widget-gameplay-v0.1
-security-v0.1
-implementation-roadmap-v0.3
+extension-architecture-v0.1
+state-governance-v0.1
+implementation-roadmap-v0.4
 progression-v0.1
 progression-curves-v0.1
 fatigue-v0.1
-integration-v1.0
+integration-v1.1
 ```
 
 ## Próximos sistemas de regra
@@ -255,13 +356,15 @@ integration-v1.0
 
 ## Diretriz para o Codex
 
-O Codex deve começar por auditoria do repositório `RalphCajazeira/cronicas-de-outro-mundo` na branch `develop`, comparar o estado atual com estas regras e propor migração incremental.
+O Codex deve começar pelo estado real do repositório `RalphCajazeira/cronicas-de-outro-mundo` na branch `develop`, consultar os documentos vivos do projeto e comparar com estas regras.
 
-Não fazer reescrita ampla nem migration destrutiva antes da auditoria, matriz de reaproveitamento, plano expand/contract e critérios de aceite.
+Não fazer reescrita ampla nem migration destrutiva antes de auditoria, matriz de reaproveitamento, plano expand/contract e critérios de aceite.
 
-Seguir:
+Aplicar:
 
-`docs/18-roadmap-de-implementacao-para-o-codex.md`
+```text
+Pesquisar → Reutilizar → Adaptar → Extrair pequeno → Criar novo
+```
 
 ## Convenções
 
@@ -273,9 +376,11 @@ Seguir:
 - moeda `CROWN`;
 - XP interna em `xpMilli`, com `1 XP = 1.000 xpMilli`;
 - backend como autoridade oficial;
-- widget sem regra autoritativa duplicada;
+- extensão sem regra autoritativa duplicada;
+- widget mantido apenas como fallback;
 - GPT não inventa recursos mecânicos ausentes;
-- informações do Mestre não aparecem no widget;
+- informações do Mestre não aparecem em superfícies do jogador;
 - ações executadas podem gerar aprendizagem mesmo fora de combate;
 - custos, tempo, Cansaço e consequências nunca são ignorados em treino;
-- toda mudança de regra atualiza a versão correspondente.
+- toda mudança de regra atualiza a versão correspondente;
+- toda mudança de capacidade ou rollout atualiza os documentos vivos do repositório executável.
